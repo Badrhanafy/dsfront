@@ -6,7 +6,7 @@ function App() {
   return(
     
      <div className='bg-grren-400 w-full'>
-      <Navbar/><br /><br />
+      <Navbar/>
         <Router   />
      </div>
 

@@ -7,6 +7,9 @@ import Register from "../components/Register";
 import ServiceDetails from "../pages/services/ServiceDetais";
 import Services from "../pages/services/Services";
 import Providers from "@/pages/providers/Providers";
+import { CompleteProfile } from "@/pages/providers/CompleteProfile";
+import About from "@/components/About";
+import ProviderDetails from "@/pages/providers/ProviderDetails";
 export default function Router() {
   return (
     <Routes>
@@ -16,7 +19,9 @@ export default function Router() {
       <Route path="/services/:id" element={<ServiceDetails />} />
       <Route path="/services" element={<Services />} />
       <Route path="/providers" element={<Providers/>}/>
-      
+      <Route path="/profile/complete/:id" element={<CompleteProfile/>}/>
+      <Route path="/About" element={<About/>}/>
+      <Route path="/providers/:providerid" element={<ProviderDetails/>}/>
       
       
       <Route path="*" element={<Navigate to="/" replace />} />

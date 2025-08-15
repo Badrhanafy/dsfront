@@ -1,10 +1,12 @@
-// components/Register.jsx
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import axios from 'axios';
+import { toast } from 'react-hot-toast';
+import { Loader2, CheckCircle2, AlertCircle, User, Briefcase, Lock, Mail, MapPin, Award } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const schema = yup.object().shape({
   name: yup.string().required('Full name is required'),
@@ -22,12 +24,9 @@ const schema = yup.object().shape({
   role: yup.string().required('Please select a role').oneOf(['client', 'provider'], 'Invalid role'),
 });
 
-const Register = ({ onRegister }) => {
+const Register = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [debugInfo, setDebugInfo] = useState(null);
   
   const { register, handleSubmit, formState: { errors }, watch } = useForm({
     resolver: yupResolver(schema),
@@ -38,284 +37,360 @@ const Register = ({ onRegister }) => {
 
   const onSubmit = async (data) => {
     setIsLoading(true);
-    setError('');
-    setSuccess('');
-    setDebugInfo(null);
-
+    
     try {
-      // Log the request data for debugging
-      console.log('Sending registration data:', data);
-      
-      // Configure the request
-      const config = {
-        method: 'post',
-        url: 'http://localhost:8000/api/register',
+      const registerResponse = await axios.post('http://localhost:8000/api/register', data, {
         headers: { 
-          'Accept': 'application/json, text/plain, */*',
+          'Accept': 'application/json',
           'Content-Type': 'application/json'
         },
-        data: JSON.stringify(data),
-        timeout: 5000 // 5 second timeout
-      };
-
-      // Send registration request to Laravel backend
-      const response = await axios(config);
-
-      // Debug info
-      setDebugInfo({
-        request: config,
-        response: {
-          status: response.status,
-          headers: response.headers,
-          data: response.data
-        }
+        timeout: 5000
       });
 
-      // If registration is successful
-      setSuccess('Registration successful! Redirecting to login...');
-      
-      // Redirect to login after 2 seconds
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
-
-    } catch (err) {
-      // Debug info
-      setDebugInfo({
-        error: err,
-        request: err.config,
-        response: err.response ? {
-          status: err.response.status,
-          headers: err.response.headers,
-          data: err.response.data
-        } : null
+      const loginResponse = await axios.post('http://localhost:8000/api/login', {
+        email: data.email,
+        password: data.password
       });
 
-      // Handle different types of errors
-      if (err.response) {
-        // Server responded with error status
-        setError(err.response.data?.message || 
-                err.response.data?.error || 
-                `Registration failed (Status: ${err.response.status})`);
-      } else if (err.request) {
-        // Request was made but no response received
-        setError('No response from server. Please check:'
-          + '\n1. Is the backend server running?'
-          + '\n2. Are there CORS issues?'
-          + '\n3. Check browser console for details');
-        
-        console.error('No response received:', err.request);
+      localStorage.setItem('access_token', loginResponse.data.token);
+      localStorage.setItem('userData', JSON.stringify(loginResponse.data.user));
+
+      toast.success('Registration successful! You are now logged in.');
+
+      if (data.role === 'provider') {
+        navigate(`/profile/complete/${loginResponse.data.user.id}`);
       } else {
-        // Other errors
-        setError('Registration error: ' + err.message);
-        console.error('Registration error:', err);
+        navigate('/dashboard');
       }
+
+    } catch (error) {
+      let errorMessage = 'Registration failed';
+      
+      if (error.response) {
+        errorMessage = error.response.data?.message || 
+                      error.response.data?.error || 
+                      `Registration failed (Status: ${error.response.status})`;
+      } else if (error.request) {
+        errorMessage = 'No response from server. Please try again later.';
+      } else {
+        errorMessage = error.message;
+      }
+
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <Link to="/" className="flex justify-center">
-          <svg className="w-12 h-12 text-indigo-600" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-            <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
-          </svg>
-        </Link>
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Create a new account
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Or{' '}
-          <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
-            sign in to your existing account
-          </Link>
-        </p>
-      </div>
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center p-4">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="glass-card mt-16 rounded-2xl overflow-hidden w-full max-w-6xl flex flex-col lg:flex-row"
+      >
+        {/* Left Side - Branding and Info */}
+        <div className="lg:w-1/2 bg-gradient-to-br from-cyan-900/80 to-purple-900/80 p-8 md:p-12 flex flex-col justify-between">
+          <div>
+            <Link to="/" className="flex items-center gap-2">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-400 to-purple-500 flex items-center justify-center">
+                <Award className="w-6 h-6 text-white" />
+              </div>
+              <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-300 to-purple-300">
+                ServiceHub
+              </span>
+            </Link>
+            
+            {/* Large Image at the start of the text */}
+            <div className="mt-6 w-full flex justify-center">
+              <motion.img 
+                src="Dari Services.png" 
+                alt="ServiceHub Illustration"
+                className="w-full max-w-md h-auto object-contain"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              />
+            </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          {error && (
-            <div className="mb-4 bg-red-50 border-l-4 border-red-500 p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-red-700 whitespace-pre-line">{error}</p>
-                </div>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="mt-8"
+            >
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+                Join Our <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-400">Premium</span> Network
+              </h1>
+              <p className="mt-4 text-slate-300 max-w-md">
+                Connect with top professionals or showcase your services to thousands of clients worldwide.
+              </p>
+            </motion.div>
+          </div>
+
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4"
+          >
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-full bg-cyan-500/20 text-cyan-400">
+                <MapPin className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-medium text-white">Global Reach</h4>
+                <p className="text-sm text-slate-300">Connect with clients worldwide</p>
               </div>
             </div>
-          )}
-
-          {success && (
-            <div className="mb-4 bg-green-50 border-l-4 border-green-500 p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-green-700">{success}</p>
-                </div>
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-full bg-purple-500/20 text-purple-400">
+                <Briefcase className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-medium text-white">Premium Services</h4>
+                <p className="text-sm text-slate-300">Top-rated professionals</p>
               </div>
             </div>
-          )}
-
-                    <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                Full Name
-              </label>
-              <div className="mt-1">
-                <input
-                  id="name"
-                  name="name"
-                  type="text"
-                  autoComplete="name"
-                  {...register('name')}
-                  className={`appearance-none block w-full px-3 py-2 border ${errors.name ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
-                />
-                {errors.name && (
-                  <p className="mt-2 text-sm text-red-600">{errors.name.message}</p>
-                )}
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-full bg-cyan-500/20 text-cyan-400">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-medium text-white">Verified Providers</h4>
+                <p className="text-sm text-slate-300">Rigorous vetting process</p>
               </div>
             </div>
-
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email address
-              </label>
-              <div className="mt-1">
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  {...register('email')}
-                  className={`appearance-none block w-full px-3 py-2 border ${errors.email ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
-                />
-                {errors.email && (
-                  <p className="mt-2 text-sm text-red-600">{errors.email.message}</p>
-                )}
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-full bg-purple-500/20 text-purple-400">
+                <Lock className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-medium text-white">Secure Platform</h4>
+                <p className="text-sm text-slate-300">Your data is protected</p>
               </div>
             </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <div className="mt-1">
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="new-password"
-                  {...register('password')}
-                  className={`appearance-none block w-full px-3 py-2 border ${errors.password ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
-                />
-                {errors.password && (
-                  <p className="mt-2 text-sm text-red-600">{errors.password.message}</p>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="password_confirmation" className="block text-sm font-medium text-gray-700">
-                Confirm Password
-              </label>
-              <div className="mt-1">
-                <input
-                  id="password_confirmation"
-                  name="password_confirmation"
-                  type="password"
-                  autoComplete="new-password"
-                  {...register('password_confirmation')}
-                  className={`appearance-none block w-full px-3 py-2 border ${errors.password_confirmation ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
-                />
-                {errors.password_confirmation && (
-                  <p className="mt-2 text-sm text-red-600">{errors.password_confirmation.message}</p>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Register as
-              </label>
-              <div className="mt-1 grid grid-cols-2 gap-3">
-                <div>
-                  <input
-                    id="client"
-                    name="role"
-                    type="radio"
-                    value="client"
-                    className="sr-only"
-                    {...register('role')}
-                  />
-                  <label
-                    htmlFor="client"
-                    className={`w-full flex items-center justify-center px-4 py-2 border rounded-md shadow-sm text-sm font-medium ${watch('role') === 'client' ? 'bg-indigo-100 border-indigo-500 text-indigo-700' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}
-                  >
-                    Client
-                  </label>
-                </div>
-                <div>
-                  <input
-                    id="provider"
-                    name="role"
-                    type="radio"
-                    value="provider"
-                    className="sr-only"
-                    {...register('role')}
-                  />
-                  <label
-                    htmlFor="provider"
-                    className={`w-full flex items-center justify-center px-4 py-2 border rounded-md shadow-sm text-sm font-medium ${watch('role') === 'provider' ? 'bg-indigo-100 border-indigo-500 text-indigo-700' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}
-                  >
-                    Service Provider
-                  </label>
-                </div>
-              </div>
-              {errors.role && (
-                <p className="mt-2 text-sm text-red-600">{errors.role.message}</p>
-              )}
-            </div>
-
-            <div>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Registering...
-                  </>
-                ) : 'Register'}
-              </button>
-            </div>
-          </form>
-
-          {/* Debug information (visible in development) */}
-          {process.env.NODE_ENV === 'development' && debugInfo && (
-            <div className="mt-6 p-4 bg-gray-100 rounded-md text-xs">
-              <h3 className="font-bold mb-2">Debug Information:</h3>
-              <pre className="overflow-auto max-h-40">
-                {JSON.stringify(debugInfo, null, 2)}
-              </pre>
-            </div>
-          )}
+          </motion.div>
         </div>
-      </div>
+
+        {/* Right Side - Registration Form */}
+        <div className="lg:w-1/2 p-8 md:p-12">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <h2 className="text-2xl font-bold text-white">Create Your Account</h2>
+            <p className="mt-2 text-slate-400">
+              Already have an account?{' '}
+              <Link to="/login" className="text-cyan-400 hover:text-cyan-300">
+                Sign in here
+              </Link>
+            </p>
+
+            <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
+               <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-slate-300 mb-1">
+                  Full Name
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-slate-500" />
+                  </div>
+                  <input
+                    id="name"
+                    name="name"
+                    type="text"
+                    autoComplete="name"
+                    {...register('name')}
+                    className={`block w-full pl-10 pr-4 py-3 rounded-lg shadow-sm bg-slate-800/50 border ${errors.name ? 'border-red-500 focus:ring-red-500' : 'border-slate-700 focus:ring-cyan-500'} focus:outline-none focus:ring-1`}
+                    placeholder="John Doe"
+                  />
+                  {errors.name && (
+                    <p className="mt-1 text-sm text-red-400 flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      {errors.name.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-1">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-slate-500" />
+                  </div>
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    {...register('email')}
+                    className={`block w-full pl-10 pr-4 py-3 rounded-lg shadow-sm bg-slate-800/50 border ${errors.email ? 'border-red-500 focus:ring-red-500' : 'border-slate-700 focus:ring-cyan-500'} focus:outline-none focus:ring-1`}
+                    placeholder="you@example.com"
+                  />
+                  {errors.email && (
+                    <p className="mt-1 text-sm text-red-400 flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      {errors.email.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-1">
+                  Password
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Lock className="h-5 w-5 text-slate-500" />
+                  </div>
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    autoComplete="new-password"
+                    {...register('password')}
+                    className={`block w-full pl-10 pr-4 py-3 rounded-lg shadow-sm bg-slate-800/50 border ${errors.password ? 'border-red-500 focus:ring-red-500' : 'border-slate-700 focus:ring-cyan-500'} focus:outline-none focus:ring-1`}
+                    placeholder="••••••••"
+                  />
+                  {errors.password && (
+                    <p className="mt-1 text-sm text-red-400 flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      {errors.password.message}
+                    </p>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  Must be at least 8 characters with uppercase, lowercase, number, and special character
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="password_confirmation" className="block text-sm font-medium text-slate-300 mb-1">
+                  Confirm Password
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Lock className="h-5 w-5 text-slate-500" />
+                  </div>
+                  <input
+                    id="password_confirmation"
+                    name="password_confirmation"
+                    type="password"
+                    autoComplete="new-password"
+                    {...register('password_confirmation')}
+                    className={`block w-full pl-10 pr-4 py-3 rounded-lg shadow-sm bg-slate-800/50 border ${errors.password_confirmation ? 'border-red-500 focus:ring-red-500' : 'border-slate-700 focus:ring-cyan-500'} focus:outline-none focus:ring-1`}
+                    placeholder="••••••••"
+                  />
+                  {errors.password_confirmation && (
+                    <p className="mt-1 text-sm text-red-400 flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      {errors.password_confirmation.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  I want to register as:
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <input
+                      id="client"
+                      name="role"
+                      type="radio"
+                      value="client"
+                      className="sr-only peer"
+                      {...register('role')}
+                    />
+                    <label
+                      htmlFor="client"
+                      className={`flex flex-col items-center p-4 border rounded-lg cursor-pointer transition-all ${
+                        watch('role') === 'client' 
+                          ? 'border-cyan-400 bg-cyan-500/10 text-cyan-300' 
+                          : 'border-slate-700 hover:bg-slate-800/50'
+                      }`}
+                    >
+                      <User className="h-6 w-6 mb-2" />
+                      <span className="font-medium">Client</span>
+                      <span className="text-xs text-slate-400 mt-1">Looking for services</span>
+                    </label>
+                  </div>
+                  <div>
+                    <input
+                      id="provider"
+                      name="role"
+                      type="radio"
+                      value="provider"
+                      className="sr-only peer"
+                      {...register('role')}
+                    />
+                    <label
+                      htmlFor="provider"
+                      className={`flex flex-col items-center p-4 border rounded-lg cursor-pointer transition-all ${
+                        watch('role') === 'provider' 
+                          ? 'border-purple-400 bg-purple-500/10 text-purple-300' 
+                          : 'border-slate-700 hover:bg-slate-800/50'
+                      }`}
+                    >
+                      <Briefcase className="h-6 w-6 mb-2" />
+                      <span className="font-medium">Provider</span>
+                      <span className="text-xs text-slate-400 mt-1">Offering services</span>
+                    </label>
+                  </div>
+                </div>
+                {errors.role && (
+                  <p className="mt-1 text-sm text-red-400 flex items-center">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    {errors.role.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 disabled:opacity-70 transition-all"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                      Creating account...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="-ml-1 mr-2 h-4 w-4" />
+                      Create account
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+            </form>
+          </motion.div>
+        </div>
+      </motion.div>
+      
+      <style>{`
+        .glass-card {
+          background: rgba(15, 23, 42, 0.7);
+          backdrop-filter: blur(10px) saturate(120%);
+          border: 1px solid rgba(255,255,255,0.08);
+          box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        .glass-card:hover {
+          border-color: rgba(255,255,255,0.12);
+        }
+      `}</style>
     </div>
   );
 };
