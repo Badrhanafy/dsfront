@@ -1,426 +1,509 @@
-import { useState, useEffect } from 'react';
-import { Link, useParams } from 'react-router-dom';
+// src/components/ServiceDetails.jsx
+import { useState, useEffect, useRef } from 'react';
+import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { FiClock, FiDollarSign, FiMapPin, FiCalendar, FiCheckCircle, FiStar, FiUser } from "react-icons/fi";
-import Navbar from '../../components/navbar';
+import VanillaTilt from 'vanilla-tilt';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Loader2,
+  Star,
+  Phone,
+  Mail,
+  MapPin,
+  CheckCircle,
+  Briefcase,
+  ChevronRight,
+} from 'lucide-react';
 
+/* shadcn ui */
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+
+/* reusable star component (glass style) */
+const StarRating = ({ rating, setRating, interactive = true, size = 20 }) => {
+  const [hover, setHover] = useState(0);
+  return (
+    <div className="flex space-x-1">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <button
+          key={i}
+          type="button"
+          onMouseEnter={() => interactive && setHover(i)}
+          onMouseLeave={() => interactive && setHover(0)}
+          onClick={() => interactive && setRating(i)}
+          className="transition-transform hover:scale-110"
+        >
+          <Star
+            size={size}
+            className={`cursor-pointer transition-colors ${
+              i <= (hover || rating)
+                ? 'fill-amber-400 text-amber-400'
+                : 'fill-transparent text-slate-500'
+            }`}
+          />
+        </button>
+      ))}
+    </div>
+  );
+};
 
 const ServiceDetails = () => {
   const { id } = useParams();
   const [service, setService] = useState(null);
-  const [provider, setProvider] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('details');
+
+  /* review form */
+  const [newRating, setNewRating] = useState({ rating: 5, comment: '' });
+  const [editingRating, setEditingRating] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+
+  /* auth */
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  /* tilt */
+  const cardRefs = useRef([]);
+
+  /* ---------------- business logic (unchanged) ---------------- */
+  useEffect(() => {
+    const t = localStorage.getItem('access_token');
+    if (t) {
+      setIsLoggedIn(true);
+      setCurrentUser({ id: 1, name: 'Current User' });
+    }
+  }, []);
 
   useEffect(() => {
     const fetchService = async () => {
-      setIsLoading(true);
       try {
-        const response = await axios.get(`http://localhost:8000/api/services/${id}`);
-        setService(response.data.data.service);
-        setProvider(response.data.data.provider);
+        const { data } = await axios.get(`http://localhost:8000/api/services/${id}`);
+        setService(data.data);
       } catch (err) {
-        setError(err.response?.data?.message || 'Failed to load service details');
+        setError(err.response?.data?.message || 'Failed to fetch service details');
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
-
     fetchService();
   }, [id]);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-12">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="animate-pulse space-y-8">
-            <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-            <div className="h-6 bg-gray-200 rounded w-2/3"></div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="md:col-span-2 space-y-6">
-                <div className="h-64 bg-gray-200 rounded-lg"></div>
-                <div className="space-y-4">
-                  <div className="h-6 bg-gray-200 rounded w-full"></div>
-                  <div className="h-6 bg-gray-200 rounded w-5/6"></div>
-                  <div className="h-6 bg-gray-200 rounded w-4/6"></div>
-                </div>
-              </div>
-              
-              <div className="space-y-6">
-                <div className="h-64 bg-gray-200 rounded-lg"></div>
-                <div className="h-12 bg-gray-200 rounded w-full"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handleRatingChange = (value) =>
+    setNewRating((prev) => ({ ...prev, rating: value }));
+  const handleCommentChange = (e) =>
+    setNewRating((prev) => ({ ...prev, comment: e.target.value }));
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-12">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="bg-red-50 border-l-4 border-red-400 p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-red-700">{error}</p>
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!service || !provider) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-12">
-        <Navbar/>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="text-gray-600">Service not found</p>
-          <Link
-            to="/services"
-            className="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            Browse Services
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  const renderRatingStars = (rating) => {
-    const stars = [];
-    const fullStars = Math.floor(rating);
-    const hasHalfStar = rating % 1 >= 0.5;
-    
-    for (let i = 1; i <= 5; i++) {
-      if (i <= fullStars) {
-        stars.push(<FiStar key={i} className="text-yellow-400 fill-current" />);
-      } else if (i === fullStars + 1 && hasHalfStar) {
-        stars.push(<FiStar key={i} className="text-yellow-400 fill-current opacity-50" />);
-      } else {
-        stars.push(<FiStar key={i} className="text-gray-300" />);
-      }
+  const handleSubmitRating = async () => {
+    if (!isLoggedIn) {
+      setSubmitError('You must be logged in to submit a rating');
+      return;
     }
-    
-    return stars;
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const endpoint = editingRating
+        ? `http://localhost:8000/api/ratings/${editingRating.id}`
+        : `http://localhost:8000/api/services/${id}/ratings`;
+      const method = editingRating ? 'put' : 'post';
+      const body = { rating: newRating.rating, comment_text: newRating.comment };
+
+      const { data } = await axios[method](endpoint, body, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` },
+      });
+
+      if (editingRating) {
+        setService((s) => ({
+          ...s,
+          ratings: s.ratings.map((r) => (r.id === editingRating.id ? data.data : r)),
+        }));
+      } else {
+        setService((s) => ({
+          ...s,
+          ratings: [...s.ratings, data.data],
+          average_rating:
+            (s.average_rating * s.ratings.length + newRating.rating) /
+            (s.ratings.length + 1),
+          total_ratings: s.total_ratings + 1,
+        }));
+      }
+      setNewRating({ rating: 5, comment: '' });
+      setEditingRating(null);
+    } catch (err) {
+      setSubmitError(err.response?.data?.message || 'Failed to submit rating');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Breadcrumb */}
-        <nav className="flex mb-8" aria-label="Breadcrumb">
-          <ol className="flex items-center space-x-4">
-            <li>
-              <div>
-                <Link to="/" className="text-gray-400 hover:text-gray-500">
-                  <svg className="flex-shrink-0 h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-                  </svg>
-                  <span className="sr-only">Home</span>
-                </Link>
-              </div>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <svg className="flex-shrink-0 h-5 w-5 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                </svg>
-                <Link to="/services" className="ml-4 text-sm font-medium text-gray-500 hover:text-gray-700">
-                  Services
-                </Link>
-              </div>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <svg className="flex-shrink-0 h-5 w-5 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                </svg>
-                <span className="ml-4 text-sm font-medium text-gray-500">{service.title}</span>
-              </div>
-            </li>
-          </ol>
-        </nav>
+  const handleEditRating = (rating) => {
+    setEditingRating(rating);
+    setNewRating({ rating: rating.rating, comment: rating.comment || '' });
+  };
 
-        {/* Main Content */}
-        <div className="bg-white shadow overflow-hidden rounded-lg">
-          {/* Service Header */}
-          <div className="px-6 py-5 border-b border-gray-200">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">{service.title}</h1>
-                <div className="mt-2 flex items-center">
-                  <Link 
-                    to={`/services?category=${service.category}`}
-                    className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
-                  >
-                    {service.category}
-                  </Link>
-                  {service.is_available && (
-                    <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      <FiCheckCircle className="mr-1" /> Available
-                    </span>
-                  )}
+  const handleDeleteRating = async (ratingId) => {
+    try {
+      await axios.delete(`http://localhost:8000/api/ratings/${ratingId}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` },
+      });
+      const removed = service.ratings.find((r) => r.id === ratingId);
+      const filtered = service.ratings.filter((r) => r.id !== ratingId);
+      setService((s) => ({
+        ...s,
+        ratings: filtered,
+        average_rating:
+          filtered.length > 0
+            ? ((s.average_rating * s.ratings.length - removed.rating) /
+                (s.ratings.length - 1))
+            : 0,
+        total_ratings: s.total_ratings - 1,
+      }));
+    } catch (err) {
+      setSubmitError(err.response?.data?.message || 'Failed to delete rating');
+    }
+  };
+
+  const userRating =
+    isLoggedIn && currentUser
+      ? service?.ratings.find((r) => r.user_id === currentUser.id)
+      : null;
+
+  /* ---------------- tilt effect ---------------- */
+  useEffect(() => {
+    cardRefs.current.forEach((el) =>
+      el &&
+      VanillaTilt.init(el, { max: 5, speed: 300, glare: true, 'max-glare': 0.1 })
+    );
+  }, [service]);
+
+  /* ---------------- skeleton ---------------- */
+  if (loading)
+    return (
+      <div className="min-h-screen bg-slate-900 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <div className="lg:col-span-1">
+              <div className="glass-card p-6 rounded-2xl space-y-6">
+                <div className="flex flex-col items-center">
+                  <Skeleton className="h-32 w-32 rounded-full bg-slate-800" />
+                  <Skeleton className="h-6 w-3/4 mt-4 bg-slate-800" />
+                  <Skeleton className="h-4 w-1/2 mt-2 bg-slate-800" />
                 </div>
-              </div>
-              <div className="mt-4 md:mt-0">
-                <span className="text-3xl font-bold text-gray-900">
-                  {service.rate_type === 'hourly' ? `$${service.hourly_rate}/hr` : 
-                   service.rate_type === 'fixed' ? `$${service.fixed_rate}` : 
-                   `From $${service.hourly_rate}/hr`}
-                </span>
+                <Skeleton className="h-40 w-full bg-slate-800 rounded-xl" />
               </div>
             </div>
-          </div>
-
-          {/* Service Content */}
-          <div className="px-6 py-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {/* Left Column - Service Details */}
-              <div className="md:col-span-2">
-                {/* Tabs */}
-                <div className="border-b border-gray-200">
-                  <nav className="-mb-px flex space-x-8">
-                    <button
-                      onClick={() => setActiveTab('details')}
-                      className={`${activeTab === 'details' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-                    >
-                      Service Details
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('availability')}
-                      className={`${activeTab === 'availability' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-                    >
-                      Availability
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('reviews')}
-                      className={`${activeTab === 'reviews' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-                    >
-                      Reviews
-                    </button>
-                  </nav>
-                </div>
-
-                {/* Tab Content */}
-                <div className="mt-6">
-                  {activeTab === 'details' && (
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900">About this service</h3>
-                      <div className="mt-4 prose prose-blue text-gray-500">
-                        <p>{service.description}</p>
-                      </div>
-
-                      <div className="mt-8">
-                        <h4 className="text-sm font-medium text-gray-900">Service areas</h4>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {service.service_areas?.length > 0 ? (
-                            service.service_areas.map((area, index) => (
-                              <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                <FiMapPin className="mr-1" /> {area}
-                              </span>
-                            ))
-                          ) : (
-                            <p className="text-sm text-gray-500">No specific service areas defined</p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="mt-8">
-                        <h4 className="text-sm font-medium text-gray-900">Skills & Expertise</h4>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {provider.skills?.length > 0 ? (
-                            provider.skills.map((skill, index) => (
-                              <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                {skill}
-                              </span>
-                            ))
-                          ) : (
-                            <p className="text-sm text-gray-500">No skills listed</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {activeTab === 'availability' && (
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900">Availability</h3>
-                      <div className="mt-4">
-                        {service.availability ? (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {Object.entries(service.availability).map(([day, times]) => (
-                              <div key={day} className="bg-gray-50 p-4 rounded-lg">
-                                <h4 className="font-medium capitalize">{day}</h4>
-                                {times.length > 0 ? (
-                                  <ul className="mt-2 space-y-1">
-                                    {times.map((time, index) => (
-                                      <li key={index} className="flex items-center text-sm text-gray-600">
-                                        <FiClock className="mr-2" /> {time}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                  <p className="mt-2 text-sm text-gray-500">Not available</p>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-gray-500">Availability not specified</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {activeTab === 'reviews' && (
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900">Customer Reviews</h3>
-                      <div className="mt-6">
-                        <div className="flex items-center">
-                          <div className="flex items-center">
-                            {renderRatingStars(provider.rating)}
-                          </div>
-                          <span className="ml-2 text-gray-600">
-                            {provider.rating?.toFixed(1)} ({provider.reviews_count || 0} reviews)
-                          </span>
-                        </div>
-                        <p className="mt-4 text-gray-500">
-                          Reviews will be displayed here. This is a placeholder for future implementation.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Right Column - Provider Card */}
-              <div className="space-y-6">
-                <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-                  <div className="px-6 py-5">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        {provider.avatar ? (
-                          <img className="h-16 w-16 rounded-full" src={provider.avatar} alt={provider.name} />
-                        ) : (
-                          <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-2xl font-bold">
-                            {provider.name.charAt(0)}
-                          </div>
-                        )}
-                      </div>
-                      <div className="ml-4">
-                        <h3 className="text-lg font-medium text-gray-900">
-                          <Link to={`/providers/${provider.id}`} className="hover:text-blue-600 transition-colors">
-                            {provider.name}
-                          </Link>
-                        </h3>
-                        <p className="text-sm text-gray-500">{provider.profession}</p>
-                        <div className="mt-1 flex items-center">
-                          {renderRatingStars(provider.rating)}
-                          <span className="ml-2 text-sm text-gray-600">
-                            ({provider.reviews_count || 0} reviews)
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-6 space-y-4">
-                      <div className="flex items-center text-sm text-gray-600">
-                        <FiUser className="flex-shrink-0 mr-2 text-gray-400" />
-                        <span>{provider.years_of_experience || '0'} years experience</span>
-                      </div>
-                      {provider.certifications?.length > 0 && (
-                        <div className="text-sm">
-                          <h4 className="font-medium text-gray-900 mb-1">Certifications</h4>
-                          <ul className="space-y-1">
-                            {provider.certifications.map((cert, index) => (
-                              <li key={index} className="flex items-center text-gray-600">
-                                <FiCheckCircle className="flex-shrink-0 mr-2 text-green-500" />
-                                {cert}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="px-6 py-4 bg-gray-50">
-                    <Link
-                      to={`/providers/${provider.id}`}
-                      className="w-full flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors"
-                    >
-                      View Full Profile
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Booking Card */}
-                <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-                  <div className="px-6 py-5">
-                    <h3 className="text-lg font-medium text-gray-900">Book this service</h3>
-                    <div className="mt-4 space-y-4">
-                      <div>
-                        <label htmlFor="date" className="block text-sm font-medium text-gray-700">Date</label>
-                        <div className="mt-1 relative rounded-md shadow-sm">
-                          <input
-                            type="date"
-                            name="date"
-                            id="date"
-                            className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-3 pr-3 py-2 sm:text-sm border-gray-300 rounded-md"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label htmlFor="time" className="block text-sm font-medium text-gray-700">Time</label>
-                        <div className="mt-1 relative rounded-md shadow-sm">
-                          <select
-                            id="time"
-                            name="time"
-                            className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-3 pr-10 py-2 sm:text-sm border-gray-300 rounded-md"
-                          >
-                            <option>9:00 AM</option>
-                            <option>10:00 AM</option>
-                            <option>11:00 AM</option>
-                            <option>12:00 PM</option>
-                            <option>1:00 PM</option>
-                            <option>2:00 PM</option>
-                            <option>3:00 PM</option>
-                            <option>4:00 PM</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="px-6 py-4 bg-gray-50">
-                    <button
-                      type="button"
-                      className="w-full flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition-colors"
-                    >
-                      Book Now
-                    </button>
-                  </div>
-                </div>
-              </div>
+            <div className="lg:col-span-3 space-y-6">
+              <Skeleton className="h-10 w-1/4 bg-slate-800" />
+              <Skeleton className="h-40 w-full bg-slate-800 rounded-xl" />
+              <Skeleton className="h-10 w-1/4 bg-slate-800" />
+              <Skeleton className="h-40 w-full bg-slate-800 rounded-xl" />
             </div>
           </div>
         </div>
       </div>
+    );
+
+  if (error)
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="glass-card p-8 rounded-2xl text-center max-w-sm">
+          <p className="text-red-400 mb-4">{error}</p>
+          <Button
+            onClick={() => window.location.reload()}
+            className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600"
+          >
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+
+  /* ---------------- render ---------------- */
+  return (
+    <div className="min-h-screen bg-slate-900 text-slate-100 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* --- sidebar --- */}
+          <aside className="lg:col-span-1 lg:sticky lg:top-8 lg:h-fit">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="glass-card rounded-2xl p-6"
+            >
+              <div className="flex flex-col items-center">
+                <Avatar className="w-32 h-32 mb-4 ring-4 ring-slate-800/50 shadow-lg">
+                  <AvatarImage src={service.user?.profile?.avatar} />
+                  <AvatarFallback className="text-4xl bg-gradient-to-r from-cyan-500 to-purple-500">
+                    {service.user?.name?.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                <h2 className="text-xl font-bold">{service.user?.name}</h2>
+                <p className="text-cyan-400">{service.user?.profile?.profession}</p>
+
+                <div className="flex items-center gap-2 mt-3">
+                  <StarRating
+                    rating={service.average_rating}
+                    interactive={false}
+                    size={18}
+                  />
+                  <span className="text-sm text-slate-400">
+                    {service.average_rating} ({service.total_ratings})
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-4">
+                {[
+                  { icon: MapPin, label: 'City', value: service.user?.profile?.city },
+                  { icon: Phone, label: 'Phone', value: service.user?.profile?.phone },
+                  { icon: Mail, label: 'Email', value: service.user?.email },
+                ].map(
+                  ({ icon: Icon, label, value }) =>
+                    value && (
+                      <div key={label} className="flex items-start gap-3">
+                        <Icon className="w-5 h-5 mt-0.5 text-cyan-400" />
+                        <div>
+                          <p className="text-sm text-slate-400">{label}</p>
+                          <p className="text-white">{value}</p>
+                        </div>
+                      </div>
+                    )
+                )}
+              </div>
+
+              <div className="mt-6 border-t border-slate-800 pt-6">
+                <h3 className="font-medium mb-3">Contact Provider</h3>
+                <form className="space-y-3">
+                  <Input
+                    placeholder="Your name"
+                    className="bg-slate-800/50 border-slate-700 focus:border-cyan-400"
+                  />
+                  <Textarea
+                    placeholder="Your message"
+                    rows={3}
+                    className="bg-slate-800/50 border-slate-700 focus:border-cyan-400"
+                  />
+                  <Button className="w-full bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600">
+                    Send Message
+                  </Button>
+                </form>
+              </div>
+            </motion.div>
+          </aside>
+
+          {/* --- main content --- */}
+          <main className="lg:col-span-3 space-y-8">
+            {/* service header */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <div className="glass-card rounded-2xl p-6">
+                <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+                  {service.title}
+                </h1>
+                <p className="mt-2 text-slate-300">{service.description}</p>
+
+                <div className="mt-4 flex items-center gap-4 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <StarRating rating={service.average_rating} interactive={false} />
+                    <span className="text-sm text-slate-400">
+                      {service.average_rating} ({service.total_ratings}
+                      &nbsp;reviews)
+                    </span>
+                  </div>
+                  <Badge className={'bg-yellow-700'} variant={service.is_available ? 'default' : 'secondary'}>
+                    {service.is_available ? 'Available' : 'Unavailable'}
+                  </Badge>
+                  <Badge variant="outline" className={'text-yellow-400'}>{service.category}</Badge>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-slate-400">Min&nbsp;duration:</span>{' '}
+                    <span className="text-white font-medium">{service.min_duration} min</span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* review section */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+            >
+              <div className="glass-card rounded-2xl p-6">
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent mb-6">
+                  Reviews
+                </h2>
+
+                {/* add / edit form */}
+                {(isLoggedIn && !userRating) || editingRating ? (
+                  <div className="glass-card border border-slate-700 rounded-xl p-5 mb-6">
+                    <h3 className="font-semibold mb-4">
+                      {editingRating ? 'Edit Your Review' : 'Add Your Review'}
+                    </h3>
+                    <div className="space-y-4">
+                      <StarRating
+                        rating={newRating.rating}
+                        setRating={handleRatingChange}
+                        size={22}
+                      />
+                      <Textarea
+                        rows={4}
+                        value={newRating.comment}
+                        onChange={handleCommentChange}
+                        placeholder="Tell others about your experience..."
+                        className="bg-slate-800/50 border-slate-700 focus:border-cyan-400"
+                      />
+                      {submitError && (
+                        <p className="text-sm text-red-400">{submitError}</p>
+                      )}
+                      <div className="flex gap-3">
+                        <Button
+                          onClick={handleSubmitRating}
+                          disabled={isSubmitting}
+                          className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+                        >
+                          {isSubmitting ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            'Submit'
+                          )}
+                        </Button>
+                        {editingRating && (
+                          <Button
+                            variant="outline"
+                            onClick={() => setEditingRating(null)}
+                          >
+                            Cancel
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : isLoggedIn && userRating ? (
+                  /* user’s own review */
+                  <div className="glass-card border border-slate-700 rounded-xl p-5 mb-6">
+                    <h3 className="font-semibold mb-3">Your Review</h3>
+                    <div className="space-y-3">
+                      <StarRating
+                        rating={userRating.rating}
+                        interactive={false}
+                        size={20}
+                      />
+                      <p className="text-slate-300">{userRating.comment_text}</p>
+                      <div className="flex gap-3">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => handleEditRating(userRating)}
+                        >
+                          Edit
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="destructive">
+                              Delete
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent className="bg-slate-900 border-slate-700">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete review?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeleteRating(userRating.id)}
+                              >
+                                Confirm
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="glass-card border border-slate-700 rounded-xl p-6 mb-6 text-center">
+                    <p className="text-slate-400">
+                      <a href="/login" className="text-cyan-400 underline">
+                        Log in
+                      </a>{' '}
+                      to leave a review.
+                    </p>
+                  </div>
+                )}
+
+                {/* other reviews */}
+                <div className="space-y-4">
+                  {service.ratings
+                    .filter((r) => !editingRating || r.id !== editingRating.id)
+                    .filter((r) => !userRating || r.id !== userRating.id)
+                    .map((r) => (
+                      <motion.div
+                        key={r.id}
+                        initial={{ opacity: 0, scale: 0.98 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="glass-card border border-slate-700 rounded-xl p-5"
+                      >
+                        <div className="flex gap-4">
+                          <Avatar>
+                            <AvatarImage src={r.user?.profile?.avatar} />
+                            <AvatarFallback className="bg-gradient-to-r from-cyan-500 to-purple-500">
+                              {r.user?.name?.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <p className="font-semibold">{r.user?.name}</p>
+                              <span className="text-xs text-slate-400">
+                                {new Date(r.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <div className="mt-1">
+                              <StarRating rating={r.rating} interactive={false} />
+                            </div>
+                            <p className="mt-2 text-slate-300">{r.comment}</p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                </div>
+              </div>
+            </motion.div>
+          </main>
+        </div>
+      </div>
+
+      <style>{`
+        .glass-card {
+          background: rgba(15, 23, 42, 0.7);
+          backdrop-filter: blur(10px) saturate(120%);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+        .glass-card:hover {
+          border-color: rgba(255, 255, 255, 0.12);
+        }
+      `}</style>
     </div>
   );
 };

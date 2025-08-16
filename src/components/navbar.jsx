@@ -1,10 +1,10 @@
-/*  Navbar.jsx – Luxe Glass Edition  */
+/*  Navbar.jsx – Luxe Glass Edition - Enhanced with Role-Based Navigation */
 import axios from 'axios';
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-import VanillaTilt from 'vanilla-tilt'; // optional glow tilt on avatar
+import VanillaTilt from 'vanilla-tilt';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -24,13 +24,32 @@ const Navbar = () => {
   const isActive = (path) =>
     location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
 
-  const navLinks = [
+  // Base nav links for unauthenticated users
+  const baseNavLinks = [
     { name: 'Home', path: '/' },
-    { name: 'Services', path: '/services' },
-    { name: 'Providers', path: '/providers' },
     { name: 'About', path: '/about' },
     { name: 'Contact', path: '/contact' },
   ];
+
+  // Client-specific links
+  const clientNavLinks = [
+    { name: 'Services', path: '/services' },
+    { name: 'Providers', path: '/providers' },
+    ...baseNavLinks
+  ];
+
+  // Provider-specific links
+  const providerNavLinks = [
+    { name: 'Messages', path: '/messages' },
+    { name: 'Posts', path: '/posts' },
+    ...baseNavLinks
+  ];
+
+  // Get appropriate nav links based on user role
+  const getNavLinks = () => {
+    if (!user) return baseNavLinks;
+    return user.role === 'provider' ? providerNavLinks : clientNavLinks;
+  };
 
   const userMenuItems = [
     { name: 'Dashboard', path: '/dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
@@ -45,7 +64,10 @@ const Navbar = () => {
 
     try {
       const stored = JSON.parse(localStorage.getItem('userData') || '{}');
-      if (stored && typeof stored === 'object') setUser(stored);
+      const token = localStorage.getItem('access_token');
+      if (stored && typeof stored === 'object' && token) {
+        setUser(stored);
+      }
     } catch {
       /* ignore */
     } finally {
@@ -53,6 +75,15 @@ const Navbar = () => {
     }
 
     if (avatarRef.current) VanillaTilt.init(avatarRef.current, { max: 10, speed: 400, glare: true, 'max-glare': 0.3 });
+
+    const handleClickOutside = (event) => {
+      if (tooltipRef.current && !tooltipRef.current.contains(event.target)) {
+        setShowTooltip(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   /* ---------- logout ---------- */
@@ -65,6 +96,9 @@ const Navbar = () => {
           {},
           { headers: { Authorization: `Bearer ${token}` } }
         );
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('userData');
+        alert('logge out !')
     } catch {
       /* ignore */
     } finally {
@@ -73,6 +107,22 @@ const Navbar = () => {
       toast.success('Logged out');
       navigate('/');
     }
+  };
+
+  /* ---------- tooltip handlers ---------- */
+  const handleUserIconMouseEnter = () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      setShowTooltip(true);
+    }
+  };
+
+  const handleTooltipMouseEnter = () => {
+    setShowTooltip(true);
+  };
+
+  const handleTooltipMouseLeave = () => {
+    setShowTooltip(false);
   };
 
   /* ---------- render ---------- */
@@ -106,7 +156,7 @@ const Navbar = () => {
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center space-x-1">
-            {navLinks.map((link) => (
+            {getNavLinks().map((link) => (
               <Link
                 key={link.name}
                 to={link.path}
@@ -139,9 +189,8 @@ const Navbar = () => {
               <div className="relative ml-6">
                 <button
                   ref={userIconRef}
-                  onMouseEnter={() => setShowTooltip(true)}
-                  onMouseLeave={() => setShowTooltip(false)}
-                  className="w-10 h-10 rounded-full bg-slate-700/60 flex items-center justify-center text-slate-400 hover:bg-slate-600 transition"
+                  onMouseEnter={handleUserIconMouseEnter}
+                  className="w-10 h-10 rounded-full bg-slate-700/60 flex items-center justify-center text-slate-400 hover:bg-slate-600 transition group"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -151,22 +200,29 @@ const Navbar = () => {
                 <AnimatePresence>
                   {showTooltip && (
                     <motion.div
+                      ref={tooltipRef}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 10 }}
-                      className="absolute right-0 mt-3 w-56 bg-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl p-4 space-y-3"
+                      onMouseEnter={handleTooltipMouseEnter}
+                      onMouseLeave={handleTooltipMouseLeave}
+                      className="absolute right-0 mt-3 w-56 bg-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl p-4 space-y-3 z-50"
+                      transition={{ duration: 0.2 }}
                     >
                       <p className="text-sm text-slate-200">Welcome to HomePro</p>
+                      <p className="text-xs text-slate-400">Sign in to access your account and manage services</p>
                       <div className="flex gap-2">
                         <Link
                           to="/login"
                           className="flex-1 text-center py-2 rounded-lg bg-slate-700 text-white hover:bg-slate-600 transition"
+                          onClick={() => setShowTooltip(false)}
                         >
                           Login
                         </Link>
                         <Link
                           to="/register"
                           className="flex-1 text-center py-2 rounded-lg bg-gradient-to-r from-cyan-400 to-purple-500 text-white hover:opacity-90 transition"
+                          onClick={() => setShowTooltip(false)}
                         >
                           Register
                         </Link>
@@ -200,7 +256,7 @@ const Navbar = () => {
               className="md:hidden overflow-hidden bg-slate-800/80 backdrop-blur-xl border-t border-slate-700/50"
             >
               <div className="px-6 py-4 space-y-2">
-                {navLinks.map((link) => (
+                {getNavLinks().map((link) => (
                   <Link
                     key={link.name}
                     to={link.path}

@@ -124,8 +124,8 @@ const Services = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 py-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen  bg-slate-900 text-slate-100 py-12">
+      <div className="max-w-7xl mt-12 mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-12 text-center">
           <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-500">
@@ -153,9 +153,9 @@ const Services = () => {
             <Button
               variant="outline"
               onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 border-slate-600 text-slate-300 hover:bg-slate-700"
+              className="flex items-center gap-2 border-slate-600 text-slate-300 bg-sky-400 hover:text-white hover:bg-slate-700"
             >
-              <FiFilter className="w-4 h-4" /> 
+              <FiFilter className="w-4 h-4 "  /> 
               Categories
             </Button>
             

@@ -37,6 +37,16 @@ export function CompleteProfile() {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [isProfileComplete, setIsProfileComplete] = useState(false);
 
+  // Utility function to get full avatar URL
+  const getAvatarUrl = (avatarPath) => {
+    if (!avatarPath) return null;
+    if (avatarPath.startsWith('http')) return avatarPath;
+    if (avatarPath.startsWith('profiles/')) {
+      return `http://localhost:8000/storage/${avatarPath}`;
+    }
+    return `http://localhost:8000/storage/profiles/${avatarPath}`;
+  };
+
   // Load and verify user data on component mount
   useEffect(() => {
     const verifyUser = async () => {
@@ -63,7 +73,7 @@ export function CompleteProfile() {
           if (parsedUser.profile) {
             setProfileData(parsedUser.profile);
             if (parsedUser.profile.avatar) {
-              setPreview(parsedUser.profile.avatar);
+              setPreview(getAvatarUrl(parsedUser.profile.avatar));
             }
           }
 
@@ -78,14 +88,13 @@ export function CompleteProfile() {
             if (profileResponse.data) {
               setProfileData(profileResponse.data);
               if (profileResponse.data.avatar) {
-                setPreview(`http://localhost:8000/storage/${profileResponse.data.avatar}`);
+                setPreview(getAvatarUrl(profileResponse.data.avatar));
               }
             }
           } catch (profileError) {
             console.log('No existing profile found from API, using localStorage data');
           }
         }
-
       } catch (error) {
         console.error('User verification failed:', error);
         localStorage.removeItem('access_token');
@@ -207,6 +216,11 @@ export function CompleteProfile() {
           }
         }
       );
+
+      // Update preview with the new avatar path
+      if (response.data.avatar) {
+        setPreview(getAvatarUrl(response.data.avatar));
+      }
 
       toast.success('Profile updated successfully!');
       navigate('/provider/dashboard');
@@ -363,7 +377,7 @@ export function CompleteProfile() {
                 </div>
                 <div className="flex items-start gap-3">
                   <div className="p-2 rounded-full bg-cyan-500/20 text-cyan-400 mt-0.5">
-                    <MapPin className="w-5 h-5" />
+                    <MapPin className="w-5 w-5" />
                   </div>
                   <div>
                     <h4 className="font-medium text-white">Location Accuracy</h4>

@@ -35,7 +35,7 @@ export default function ProvidersPage() {
           avatar: p.profile?.avatar?.startsWith('http') 
             ? p.profile.avatar 
             : p.profile?.avatar 
-              ? `http://localhost:8000/storage/${p.profile.avatar}`
+              ? `${p.profile.avatar}`
               : '/default-avatar.jpg',
           profession: p.profile?.profession || 'Professional',
           location: p.profile?.location || 'Unknown location',

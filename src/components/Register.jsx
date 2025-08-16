@@ -39,6 +39,7 @@ const Register = () => {
     setIsLoading(true);
     
     try {
+      // Step 1: Register the user
       const registerResponse = await axios.post('http://localhost:8000/api/register', data, {
         headers: { 
           'Accept': 'application/json',
@@ -47,29 +48,46 @@ const Register = () => {
         timeout: 5000
       });
 
+      // Step 2: Automatically log the user in
       const loginResponse = await axios.post('http://localhost:8000/api/login', {
         email: data.email,
         password: data.password
       });
 
+      // Store authentication data
       localStorage.setItem('access_token', loginResponse.data.token);
-      localStorage.setItem('userData', JSON.stringify(loginResponse.data.user));
+      
+      // Create complete user data object with role
+      const userData = {
+        ...loginResponse.data.user,
+        role: data.role
+      };
+      
+      localStorage.setItem('userData', JSON.stringify(userData));
 
       toast.success('Registration successful! You are now logged in.');
 
+      // Redirect based on role
       if (data.role === 'provider') {
+        // For providers, redirect to profile completion
         navigate(`/profile/complete/${loginResponse.data.user.id}`);
       } else {
-        navigate('/dashboard');
+        // For clients, redirect to home page
+        navigate('/');
       }
 
     } catch (error) {
       let errorMessage = 'Registration failed';
       
       if (error.response) {
-        errorMessage = error.response.data?.message || 
-                      error.response.data?.error || 
-                      `Registration failed (Status: ${error.response.status})`;
+        // Handle validation errors from API
+        if (error.response.data?.errors) {
+          errorMessage = Object.values(error.response.data.errors).join('\n');
+        } else {
+          errorMessage = error.response.data?.message || 
+                        error.response.data?.error || 
+                        `Registration failed (Status: ${error.response.status})`;
+        }
       } else if (error.request) {
         errorMessage = 'No response from server. Please try again later.';
       } else {
@@ -189,7 +207,6 @@ const Register = () => {
             </p>
 
             <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
-               <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-slate-300 mb-1">
                   Full Name
@@ -374,7 +391,6 @@ const Register = () => {
                   )}
                 </button>
               </div>
-            </form>
             </form>
           </motion.div>
         </div>

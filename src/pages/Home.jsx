@@ -1,10 +1,9 @@
-/*  Home.jsx  –  Luxe Edition (Enhanced with fixed hero background + scroll overlay)  */
+/*  Home.jsx  –  Luxe Edition (Enhanced with 3D button effects) */
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 
 /* ------------- OPTIONAL LIBS ------------- */
-// npm i vanilla-tilt aos
 import VanillaTilt from 'vanilla-tilt';
 import AOS from 'aos';
 import 'aos/dist/aos.css';
@@ -67,8 +66,24 @@ const Home = ({ isAuthenticated, user, onLogout }) => {
 
   /* ---------- EFFECTS ---------- */
   const cardRefs = useRef([]);
+  const buttonRefs = useRef([]);
+  
   useEffect(() => {
     cardRefs.current.forEach((el) => el && VanillaTilt.init(el, { max: 10, speed: 300, glare: true, 'max-glare': 0.2 }));
+    
+    // Initialize 3D tilt for buttons
+    buttonRefs.current.forEach((el) => {
+      if (el) {
+        VanillaTilt.init(el, {
+          max: 15,
+          speed: 300,
+          glare: true,
+          'max-glare': 0.2,
+          perspective: 1000,
+          scale: 1.05
+        });
+      }
+    });
   }, [loading.services, loading.providers]);
 
   /* ---------- RENDER ---------- */
@@ -78,8 +93,7 @@ const Home = ({ isAuthenticated, user, onLogout }) => {
       <section
         className="fixed inset-0 w-full h-screen flex items-center justify-center bg-cover bg-center bg-fixed"
         style={{
-          backgroundImage:
-            'url("https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1920&q=80")',
+          backgroundImage: 'url("backg.jpg")',
         }}
       >
         <div className="absolute inset-0 bg-black/60" />
@@ -98,11 +112,25 @@ const Home = ({ isAuthenticated, user, onLogout }) => {
             Connect with <span id="typed" className="font-semibold" />
           </p>
           <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/services" className="btn-glow px-8 py-4 rounded-xl bg-white text-slate-900 font-bold shadow-2xl hover:scale-105 transition-transform">
-              Explore Services
+            <Link 
+              to="/services" 
+              ref={el => buttonRefs.current[0] = el}
+              className="btn-3d px-8 py-4 rounded-xl bg-white text-slate-900 font-bold shadow-2xl hover:shadow-cyan-500/50 transition-all duration-300"
+              data-tilt
+              data-tilt-perspective="1000"
+            >
+              <span className="relative z-10">Explore Services</span>
+              <span className="btn-3d-gradient"></span>
             </Link>
-            <Link to="/providers" className="btn-glow px-8 py-4 rounded-xl border border-white/30 text-white font-bold hover:bg-white/10 transition-colors">
-              Meet Pros
+            <Link 
+              to="/providers" 
+              ref={el => buttonRefs.current[1] = el}
+              className="btn-3d px-8 py-4 rounded-xl border border-white/30 text-white font-bold hover:bg-white/10 transition-all duration-300"
+              data-tilt
+              data-tilt-perspective="1000"
+            >
+              <span className="relative z-10">Meet Pros</span>
+              <span className="btn-3d-gradient"></span>
             </Link>
           </div>
         </div>
@@ -155,7 +183,7 @@ const Home = ({ isAuthenticated, user, onLogout }) => {
             </div>
 
             <div className="text-center mt-14" data-aos="fade-up">
-              <Link to="/services" className="btn-glow px-8 py-3 border border-cyan-400 rounded-xl text-cyan-400 font-bold hover:bg-cyan-400 hover:text-slate-900 transition">
+              <Link to="/services" className="btn-3d px-8 py-3 border border-cyan-400 rounded-xl text-cyan-400 font-bold hover:bg-cyan-400 hover:text-slate-900 transition-all">
                 View All Services
               </Link>
             </div>
@@ -243,8 +271,15 @@ const Home = ({ isAuthenticated, user, onLogout }) => {
           <div className="container mx-auto px-6 text-center">
             <h2 className="text-4xl font-bold mb-6">Ready to Start?</h2>
             <p className="text-xl mb-8 max-w-2xl mx-auto">Join thousands of delighted customers today.</p>
-            <Link to="/register" className="btn-glow px-10 py-4 bg-white text-slate-900 font-bold rounded-xl hover:scale-105 transition-transform">
-              Join Now
+            <Link 
+              to="/register" 
+              className="btn-3d px-10 py-4 bg-white text-slate-900 font-bold rounded-xl hover:scale-105 transition-transform"
+              ref={el => buttonRefs.current[2] = el}
+              data-tilt
+              data-tilt-perspective="1000"
+            >
+              <span className="relative z-10">Join Now</span>
+              <span className="btn-3d-gradient"></span>
             </Link>
           </div>
         </section>
@@ -296,18 +331,78 @@ const Home = ({ isAuthenticated, user, onLogout }) => {
         }}
       />
 
-      <style>{`
+      <style jsx>{`
         .glass-card {
           background: rgba(255, 255, 255, 0.05);
           backdrop-filter: blur(10px);
           border: 1px solid rgba(255, 255, 255, 0.1);
           transform-style: preserve-3d;
         }
-        .btn-glow {
-          transition: box-shadow 0.3s;
+        
+        .btn-3d {
+          position: relative;
+          overflow: hidden;
+          transform-style: preserve-3d;
+          transition: all 0.3s ease;
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
         }
-        .btn-glow:hover {
-          box-shadow: 0 0 25px rgba(6, 182, 212, 0.6);
+        
+        .btn-3d-gradient {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(
+            135deg,
+            rgba(255, 255, 255, 0.3) 0%,
+            rgba(255, 255, 255, 0) 60%
+          );
+          opacity: 0;
+          transition: opacity 0.3s ease;
+        }
+        
+        .btn-3d:hover .btn-3d-gradient {
+          opacity: 1;
+        }
+        
+        .btn-3d:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Specific styles for the white button */
+        .btn-3d.bg-white:hover {
+          box-shadow: 0 15px 30px -5px rgba(74, 222, 255, 0.4);
+        }
+        
+        /* Specific styles for the transparent button */
+        .btn-3d.border-white\\/30:hover {
+          box-shadow: 0 15px 30px -5px rgba(192, 132, 252, 0.4);
+          background: rgba(255, 255, 255, 0.1);
+          backdrop-filter: blur(5px);
+        }
+        
+        /* Glow effect */
+        .btn-3d::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          border-radius: inherit;
+          opacity: 0;
+          box-shadow: 0 0 20px 5px rgba(74, 222, 255, 0.5);
+          transition: opacity 0.3s ease;
+        }
+        
+        .btn-3d:hover::after {
+          opacity: 0.7;
+        }
+        
+        .btn-3d.border-white\\/30::after {
+          box-shadow: 0 0 20px 5px rgba(192, 132, 252, 0.5);
         }
       `}</style>
     </>
