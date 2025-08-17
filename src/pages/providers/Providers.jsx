@@ -21,6 +21,32 @@ export default function ProvidersPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [activeProvider, setActiveProvider] = useState(null);
 
+  /* ---------- Fixed avatar URL processing ---------- */
+  const fixAvatarUrl = (url) => {
+    if (!url) return '/default-avatar.jpg';
+    
+    // Fix the malformed URLs with duplicate segments
+    if (url.includes('http://localhost:8000/storage/http://localhost:8000/storage/')) {
+      return url.replace(
+        'http://localhost:8000/storage/http://localhost:8000/storage/',
+        'http://localhost:8000/storage/'
+      );
+    }
+    
+    // Handle normal URLs
+    if (url.startsWith('http')) {
+      return url;
+    }
+    
+    // Handle storage paths
+    if (url.startsWith('storage/')) {
+      return `http://localhost:8000/${url}`;
+    }
+    
+    // Default fallback
+    return '/default-avatar.jpg';
+  };
+
   /* ---------- data fetch ---------- */
   useEffect(() => {
     const fetchData = async () => {
@@ -32,16 +58,12 @@ export default function ProvidersPage() {
 
         const processed = (providersRes.data.data?.data || providersRes.data.data || []).map(p => ({
           ...p,
-          avatar: p.profile?.avatar?.startsWith('http') 
-            ? p.profile.avatar 
-            : p.profile?.avatar 
-              ? `${p.profile.avatar}`
-              : '/default-avatar.jpg',
-          profession: p.profile?.profession || 'Professional',
-          location: p.profile?.location || 'Unknown location',
-          years_of_experience: p.profile?.years_of_experience || 0,
-          is_approved: p.profile?.is_approved || false,
-          services: p.services?.map(s => s.category) || []
+          avatar: fixAvatarUrl(p.avatar), // Use the fixed avatar URL
+          profession: p.profession || 'Professional',
+          location: p.location || 'Unknown location',
+          years_of_experience: p.years_of_experience || 0,
+          is_approved: p.is_approved || false,
+          services: p.services || []
         }));
         
         setProviders(processed);
@@ -238,7 +260,13 @@ export default function ProvidersPage() {
                           className="relative w-20 h-20 md:w-24 md:h-24"
                         >
                           <Avatar className="w-full h-full">
-                            <AvatarImage src={p.avatar} />
+                            <AvatarImage 
+                              src={p.avatar} 
+                              alt={`${p.name}'s profile`}
+                              onError={(e) => {
+                                e.target.src = '/default-avatar.jpg';
+                              }}
+                            />
                             <AvatarFallback className="bg-gradient-to-r from-cyan-500 to-purple-500 text-white">
                               {p.name.charAt(0)}
                             </AvatarFallback>

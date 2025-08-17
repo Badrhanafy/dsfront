@@ -31,6 +31,7 @@
     "lucide-react": "^0.539.0",
     "ol": "^10.6.1",
     "react": "^19.1.1",
+    "react-confetti": "^6.4.0",
     "react-dom": "^19.1.1",
     "react-dropzone": "^14.3.8",
     "react-hook-form": "^7.62.0",

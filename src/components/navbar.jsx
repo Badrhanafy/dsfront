@@ -1,4 +1,4 @@
-/*  Navbar.jsx – Luxe Glass Edition - Enhanced with Role-Based Navigation */
+/* Navbar.jsx - Enhanced with Instant Auth State Sync */
 import axios from 'axios';
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -20,7 +20,46 @@ const Navbar = () => {
   const userIconRef = useRef(null);
   const avatarRef = useRef(null);
 
-  /* ---------- helpers ---------- */
+  /* ---------- Auth State Management ---------- */
+  useEffect(() => {
+    // Initialize auth state from localStorage
+    const updateAuthState = () => {
+      try {
+        const token = localStorage.getItem('access_token');
+        const userData = JSON.parse(localStorage.getItem('userData')) || null;
+        
+        if (token && userData) {
+          setUser(userData);
+        } else {
+          setUser(null);
+        }
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Initial check
+    updateAuthState();
+
+    // Set up storage event listener for cross-tab sync
+    const handleStorageChange = (e) => {
+      if (e.key === 'access_token' || e.key === 'userData') {
+        updateAuthState();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  /* ---------- UI Helpers ---------- */
   const isActive = (path) =>
     location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
 
@@ -57,24 +96,17 @@ const Navbar = () => {
     { name: 'Settings', path: '/settings', icon: 'M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z' },
   ];
 
-  /* ---------- effects ---------- */
+  /* ---------- Effects ---------- */
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener('scroll', handleScroll);
 
-    try {
-      const stored = JSON.parse(localStorage.getItem('userData') || '{}');
-      const token = localStorage.getItem('access_token');
-      if (stored && typeof stored === 'object' && token) {
-        setUser(stored);
-      }
-    } catch {
-      /* ignore */
-    } finally {
-      setLoading(false);
-    }
-
-    if (avatarRef.current) VanillaTilt.init(avatarRef.current, { max: 10, speed: 400, glare: true, 'max-glare': 0.3 });
+    if (avatarRef.current) VanillaTilt.init(avatarRef.current, { 
+      max: 10, 
+      speed: 400, 
+      glare: true, 
+      'max-glare': 0.3 
+    });
 
     const handleClickOutside = (event) => {
       if (tooltipRef.current && !tooltipRef.current.contains(event.target)) {
@@ -83,33 +115,40 @@ const Navbar = () => {
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
-  /* ---------- logout ---------- */
+  /* ---------- Auth Actions ---------- */
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      if (token)
+      if (token) {
         await axios.post(
           'http://localhost:8000/api/logout',
           {},
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('userData');
-        alert('logge out !')
-    } catch {
-      /* ignore */
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
     } finally {
-      localStorage.clear();
+      // Clear auth data from localStorage and state
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('userData');
       setUser(null);
-      toast.success('Logged out');
+      
+      // Dispatch storage event to sync across tabs
+      window.dispatchEvent(new Event('storage'));
+      
+      toast.success('Logged out successfully');
       navigate('/');
     }
   };
 
-  /* ---------- tooltip handlers ---------- */
+  /* ---------- UI Handlers ---------- */
   const handleUserIconMouseEnter = () => {
     const token = localStorage.getItem('access_token');
     if (!token) {
@@ -125,7 +164,7 @@ const Navbar = () => {
     setShowTooltip(false);
   };
 
-  /* ---------- render ---------- */
+  /* ---------- Render ---------- */
   return (
     <>
       <motion.nav
