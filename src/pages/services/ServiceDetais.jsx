@@ -334,7 +334,7 @@ const ServiceDetails = () => {
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-slate-400">Min&nbsp;duration:</span>{' '}
-                    <span className="text-white font-medium">{service.min_duration} min</span>
+                    <span className="text-white font-medium">{Number(service.min_duration)} min</span>
                   </div>
                 </div>
               </div>

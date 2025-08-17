@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { FiSearch, FiFilter, FiX } from 'react-icons/fi';
+import { FiSearch, FiFilter, FiX, FiClock } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -124,7 +124,7 @@ const Services = () => {
   }
 
   return (
-    <div className="min-h-screen  bg-slate-900 text-slate-100 py-12">
+    <div className="min-h-screen bg-slate-900 text-slate-100 py-12">
       <div className="max-w-7xl mt-12 mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-12 text-center">
@@ -153,9 +153,9 @@ const Services = () => {
             <Button
               variant="outline"
               onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 border-slate-600 text-slate-300 bg-sky-400 hover:text-white hover:bg-slate-700"
+              className="flex items-center gap-2 border-slate-600 text-slate-300 bg-slate-700 hover:text-white hover:bg-slate-700"
             >
-              <FiFilter className="w-4 h-4 "  /> 
+              <FiFilter className="w-4 h-4" /> 
               Categories
             </Button>
             
@@ -237,37 +237,60 @@ const Services = () => {
               <motion.div
                 key={service.id}
                 ref={el => (cardRefs.current[i] = el)}
-                className="glass-card rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-cyan-400/30 group"
+                className="relative h-64 rounded-2xl overflow-hidden shadow-lg group"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
               >
-                <Link to={`/services/${service.id}`} className="block h-full">
-                  <div className="h-40 bg-slate-800/50 flex items-center justify-center text-4xl">
-                    {service.icon || '✨'}
-                  </div>
-                  <div className="p-5">
-                    <div className="flex justify-between items-start gap-2">
-                      <h3 className="text-lg font-bold text-white group-hover:text-cyan-400 transition-colors">
-                        {service.title}
-                      </h3>
+                {/* Service Image Background */}
+                <div className="absolute inset-0 bg-slate-800">
+                  {service.image ? (
+                    <img
+                      src={`http://localhost:8000/storage/${service.image}`}
+                      alt={service.title}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-4xl bg-gradient-to-br from-slate-800 to-slate-700">
+                      {service.icon || '✨'}
+                    </div>
+                  )}
+                </div>
+
+                {/* Overlay that covers the entire card on hover */}
+                <div className="absolute inset-0 bg-black/60 flex flex-col justify-between p-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  {/* Top section - Title and Category */}
+                  <div>
+                    <div className="flex justify-between items-start">
+                      <h3 className="text-xl font-bold text-white">{service.title}</h3>
                       <Badge variant="outline" className="text-xs border-cyan-400/50 text-cyan-300">
                         {service.category}
                       </Badge>
                     </div>
-                    
-                    <p className="text-sm text-slate-400 mt-2 line-clamp-2">{service.description}</p>
-                    
-                    <div className="mt-4 flex items-center justify-between">
-                      <div className="text-sm text-slate-300">
-                        <span className="font-bold text-white">${service.hourly_rate || '--'}</span>/hour
-                      </div>
-                      <div className="text-sm text-cyan-400 group-hover:text-cyan-300 transition-colors">
-                        View details →
-                      </div>
+                    <div className="flex items-center text-sm text-gray-300 mt-2">
+                      <FiClock className="mr-1" />
+                      <span>{service.min_duration || 30} min</span>
                     </div>
                   </div>
-                </Link>
+
+                  {/* Middle section - Description */}
+                  <p className="text-gray-300 text-sm line-clamp-3">
+                    {service.description}
+                  </p>
+
+                  {/* Bottom section - Price and View Button */}
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-slate-300">
+                      <span className="font-bold text-white">${service.hourly_rate || '--'}</span>/hour
+                    </div>
+                    <Link
+                      to={`/services/${service.id}`}
+                      className="flex items-center justify-center px-4 py-2 bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 rounded-lg hover:bg-cyan-500/30 transition"
+                    >
+                      View details →
+                    </Link>
+                  </div>
+                </div>
               </motion.div>
             ))}
           </div>

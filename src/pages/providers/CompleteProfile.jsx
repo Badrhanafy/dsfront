@@ -23,8 +23,7 @@ const profileFormSchema = z.object({
   bio: z.string().max(500).optional(),
   years_of_experience: z.number().int().min(0).max(50),
   avatar: z.any()
-    .refine(file => file?.size > 0, 'Avatar is required')
-    .refine(file => file?.size <= 2 * 1024 * 1024, 'File size must be less than 2MB'),
+    .refine(file => !file || file?.size <= 2 * 1024 * 1024, 'File size must be less than 2MB'),
 });
 
 export function CompleteProfile() {
@@ -41,10 +40,7 @@ export function CompleteProfile() {
   const getAvatarUrl = (avatarPath) => {
     if (!avatarPath) return null;
     if (avatarPath.startsWith('http')) return avatarPath;
-    if (avatarPath.startsWith('profiles/')) {
-      return `http://localhost:8000/storage/${avatarPath}`;
-    }
-    return `http://localhost:8000/storage/profiles/${avatarPath}`;
+    return `http://localhost:8000/storage/${avatarPath}`;
   };
 
   // Load and verify user data on component mount
@@ -69,30 +65,43 @@ export function CompleteProfile() {
         } else {
           setIsProvider(true);
           
-          // Load profile data from userData if available
-          if (parsedUser.profile) {
-            setProfileData(parsedUser.profile);
-            if (parsedUser.profile.avatar) {
-              setPreview(getAvatarUrl(parsedUser.profile.avatar));
-            }
-          }
-
-          // Try to load existing profile data from API
+          // Fetch fresh profile data from API
           try {
-            const profileResponse = await axios.get('http://localhost:8000/api/provider/profile', {
-              headers: {
-                'Authorization': `Bearer ${token}`
+            const profileResponse = await axios.get(
+              `http://localhost:8000/api/provider/profile/${parsedUser.id}`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
               }
-            });
+            );
             
-            if (profileResponse.data) {
-              setProfileData(profileResponse.data);
-              if (profileResponse.data.avatar) {
-                setPreview(getAvatarUrl(profileResponse.data.avatar));
+            if (profileResponse.data.success) {
+              const { profile } = profileResponse.data.data;
+              setProfileData(profile);
+              
+              // Update localStorage with fresh data
+              const updatedUser = {
+                ...parsedUser,
+                profile: profile
+              };
+              localStorage.setItem('userData', JSON.stringify(updatedUser));
+              setUserData(updatedUser);
+
+              // Set avatar preview if exists
+              if (profile.avatar) {
+                setPreview(getAvatarUrl(profile.avatar));
               }
             }
           } catch (profileError) {
-            console.log('No existing profile found from API, using localStorage data');
+            console.log('Error fetching profile:', profileError);
+            // Fallback to localStorage data if API fails
+            if (parsedUser.profile) {
+              setProfileData(parsedUser.profile);
+              if (parsedUser.profile.avatar) {
+                setPreview(getAvatarUrl(parsedUser.profile.avatar));
+              }
+            }
           }
         }
       } catch (error) {
@@ -144,6 +153,9 @@ export function CompleteProfile() {
         years_of_experience: profileData.years_of_experience || 0,
         avatar: null // We handle avatar separately with preview
       });
+      
+      // Check initial profile completion
+      checkProfileCompletion();
     }
   }, [profileData, reset]);
 
@@ -168,7 +180,10 @@ export function CompleteProfile() {
     
     const completed = fields.filter(field => {
       const value = getValues(field);
-      return value && (typeof value !== 'object' || value.size > 0);
+      if (field === 'avatar') {
+        return value || preview; // Consider avatar complete if we have a preview
+      }
+      return !!value;
     }).length;
     
     setIsProfileComplete(completed === fields.length);
@@ -202,7 +217,8 @@ export function CompleteProfile() {
       formData.append('bio', data.bio || '');
       formData.append('years_of_experience', data.years_of_experience);
       
-      if (data.avatar) {
+      // Only append avatar if it's a new file
+      if (data.avatar && data.avatar instanceof File) {
         formData.append('avatar', data.avatar);
       }
 
@@ -217,13 +233,26 @@ export function CompleteProfile() {
         }
       );
 
-      // Update preview with the new avatar path
-      if (response.data.avatar) {
-        setPreview(getAvatarUrl(response.data.avatar));
-      }
+      if (response.data.success) {
+        // Update preview with the new avatar path if it was changed
+        if (response.data.data.profile?.avatar) {
+          setPreview(getAvatarUrl(response.data.data.profile.avatar));
+        }
 
-      toast.success('Profile updated successfully!');
-      navigate('/provider/dashboard');
+        // Update userData in state and localStorage
+        const updatedUser = {
+          ...userData,
+          profile: response.data.data.profile
+        };
+        setUserData(updatedUser);
+        localStorage.setItem('userData', JSON.stringify(updatedUser));
+        setProfileData(response.data.data.profile);
+
+        toast.success('Profile updated successfully!');
+        navigate('/provider/dashboard');
+      } else {
+        toast.error(response.data.message || 'Update failed');
+      }
       
     } catch (error) {
       console.error('Update error:', error);
@@ -261,7 +290,10 @@ export function CompleteProfile() {
     ];
     const completed = fields.filter(field => {
       const value = getValues(field);
-      return value && (typeof value !== 'object' || value.size > 0);
+      if (field === 'avatar') {
+        return value || preview; // Consider avatar complete if we have a preview
+      }
+      return !!value;
     }).length;
     return Math.round((completed / fields.length) * 100);
   };
@@ -309,10 +341,10 @@ export function CompleteProfile() {
               transition={{ delay: 0.3 }}
             >
               <h1 className="text-2xl font-bold text-white">
-                Complete Your Profile
+                {profileData ? 'Update Your Profile' : 'Complete Your Profile'}
               </h1>
               <p className="mt-2 text-slate-300">
-                {profileData ? 'Update your provider details' : 'Set up your provider profile to start offering services'}
+                {profileData ? 'Keep your information up to date' : 'Set up your provider profile to start offering services'}
               </p>
               
               {/* Progress Bar */}
@@ -462,12 +494,10 @@ export function CompleteProfile() {
                     <div className="relative">
                       <input
                         type="text"
-                        placeholder="+1 234 567 890"
                         className={`w-full pl-10 pr-3 py-2.5 rounded-lg shadow-sm bg-slate-800/50 border focus:outline-none focus:ring-1 ${
                           errors.phone ? 'border-red-500 focus:ring-red-500' : 'border-slate-700 focus:ring-cyan-500'
                         }`}
                         {...register('phone')}
-                        defaultValue={profileData?.phone || ''}
                       />
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <Phone className="h-5 w-5 text-slate-500" />
@@ -488,12 +518,10 @@ export function CompleteProfile() {
                     <div className="relative">
                       <input
                         type="text"
-                        placeholder="New York"
                         className={`w-full pl-10 pr-3 py-2.5 rounded-lg shadow-sm bg-slate-800/50 border focus:outline-none focus:ring-1 ${
                           errors.city ? 'border-red-500 focus:ring-red-500' : 'border-slate-700 focus:ring-cyan-500'
                         }`}
                         {...register('city')}
-                        defaultValue={profileData?.city || ''}
                       />
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <MapPin className="h-5 w-5 text-slate-500" />
@@ -531,12 +559,10 @@ export function CompleteProfile() {
                     <div className="relative">
                       <input
                         type="text"
-                        placeholder="123 Main St, Apt 4B"
                         className={`w-full pl-10 pr-3 py-2.5 rounded-lg shadow-sm bg-slate-800/50 border focus:outline-none focus:ring-1 ${
                           errors.location ? 'border-red-500 focus:ring-red-500' : 'border-slate-700 focus:ring-cyan-500'
                         }`}
                         {...register('location')}
-                        defaultValue={profileData?.location || ''}
                       />
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <MapPin className="h-5 w-5 text-slate-500" />
@@ -557,12 +583,10 @@ export function CompleteProfile() {
                     <div className="relative">
                       <input
                         type="text"
-                        placeholder="https://maps.google.com/..."
                         className={`w-full pl-10 pr-3 py-2.5 rounded-lg shadow-sm bg-slate-800/50 border focus:outline-none focus:ring-1 ${
                           errors.location_link ? 'border-red-500 focus:ring-red-500' : 'border-slate-700 focus:ring-cyan-500'
                         }`}
                         {...register('location_link')}
-                        defaultValue={profileData?.location_link || ''}
                       />
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <MapPin className="h-5 w-5 text-slate-500" />
@@ -603,12 +627,10 @@ export function CompleteProfile() {
                     <div className="relative">
                       <input
                         type="text"
-                        placeholder="Plumber, Electrician, etc."
                         className={`w-full pl-10 pr-3 py-2.5 rounded-lg shadow-sm bg-slate-800/50 border focus:outline-none focus:ring-1 ${
                           errors.profession ? 'border-red-500 focus:ring-red-500' : 'border-slate-700 focus:ring-cyan-500'
                         }`}
                         {...register('profession')}
-                        defaultValue={profileData?.profession || ''}
                       />
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <Briefcase className="h-5 w-5 text-slate-500" />
@@ -631,12 +653,10 @@ export function CompleteProfile() {
                         type="number"
                         min="0"
                         max="50"
-                        placeholder="5"
                         className={`w-full pl-10 pr-3 py-2.5 rounded-lg shadow-sm bg-slate-800/50 border focus:outline-none focus:ring-1 ${
                           errors.years_of_experience ? 'border-red-500 focus:ring-red-500' : 'border-slate-700 focus:ring-cyan-500'
                         }`}
                         {...register('years_of_experience', { valueAsNumber: true })}
-                        defaultValue={profileData?.years_of_experience || 0}
                       />
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <Calendar className="h-5 w-5 text-slate-500" />
@@ -671,12 +691,10 @@ export function CompleteProfile() {
                     Bio (Optional)
                   </label>
                   <textarea
-                    placeholder="Tell clients about your skills and experience..."
                     className={`w-full px-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-1 min-h-[120px] bg-slate-800/50 ${
                       errors.bio ? 'border-red-500 focus:ring-red-500' : 'border-slate-700 focus:ring-cyan-500'
                     }`}
                     {...register('bio')}
-                    defaultValue={profileData?.bio || ''}
                   />
                   <p className="mt-1 text-xs text-slate-500">
                     This will be displayed on your public profile (Max 500 characters)

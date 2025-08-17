@@ -12,6 +12,8 @@ import About from "@/components/About";
 import ProviderDetails from "@/pages/providers/ProviderDetails";
 import ServiceCreateForm from "@/pages/providers/ServiceCreateForm";
 import Dashboard from "@/pages/providers/Dashboard";
+import Messages from "@/pages/providers/Messages";
+import MessageBox from "@/components/MessageBox";
 export default function Router() {
   return (
     <Routes>
@@ -26,6 +28,7 @@ export default function Router() {
       <Route path="/providers/:providerid" element={<ProviderDetails/>}/>
       <Route path="/AddService" element={< ServiceCreateForm/>}/>
    <Route path="/dashboard" element={<Dashboard />} />
+   <Route path="/Provider/messages" element={<MessageBox />} />
     
 
       <Route path="*" element={<Navigate to="/" replace />} />

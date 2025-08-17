@@ -79,7 +79,7 @@ const Navbar = () => {
 
   // Provider-specific links
   const providerNavLinks = [
-    { name: 'Messages', path: '/messages' },
+    { name: 'Messages', path: '/Provider/messages' },
     { name: 'Posts', path: '/posts' },
     ...baseNavLinks
   ];

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -8,8 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Loader2, Star, Phone, Mail, Briefcase, Calendar, CheckCircle, MapPin, ChevronRight } from 'lucide-react';
+import { Loader2, Star, Phone, Mail, Briefcase, Calendar, CheckCircle, MapPin, ChevronRight, MessageSquare } from 'lucide-react';
 import VanillaTilt from 'vanilla-tilt';
+import { toast } from 'sonner';
 
 const StarRating = ({ rating, setRating, interactive = true, size = 20 }) => {
   const [hover, setHover] = useState(0);
@@ -37,23 +38,25 @@ const StarRating = ({ rating, setRating, interactive = true, size = 20 }) => {
 
 export default function ProviderDetails() {
   const { providerid } = useParams();
+  const navigate = useNavigate();
   const [provider, setProvider] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const cardRefs = useRef([]);
 
-  /* contact form */
+  /* Message form */
   const [contactName, setContactName] = useState('');
   const [contactMsg, setContactMsg] = useState('');
   const [contactSending, setContactSending] = useState(false);
+  const [messageSent, setMessageSent] = useState(false);
 
-  /* review form */
+  /* Review form */
   const [reviewName, setReviewName] = useState('');
   const [reviewStars, setReviewStars] = useState(0);
   const [reviewText, setReviewText] = useState('');
   const [reviewSending, setReviewSending] = useState(false);
 
-  /* reviews list (local) */
+  /* Reviews list (local) */
   const [reviews, setReviews] = useState([]);
 
   useEffect(() => {
@@ -82,16 +85,42 @@ export default function ProviderDetails() {
       'max-glare': 0.1 
     }));
   }, [provider]);
+const token = localStorage.getItem('access_oken');
+const handleSendMessage = async (e) => {
+  e.preventDefault();
+  setContactSending(true);
+  
+  try {
+    const token = localStorage.getItem('access_token'); // Fixed typo in token key
+    const response = await fetch('http://localhost:8000/api/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        sender_name: contactName,
+        receiver_id: provider.id,
+        content: contactMsg
+      })
+    });
 
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    setContactSending(true);
-    await new Promise((r) => setTimeout(r, 1500));
+    if (!response.ok) {
+      throw new Error('Failed to send message');
+    }
+
+    const data = await response.json();
     setContactName('');
     setContactMsg('');
+    setMessageSent(true);
+    setTimeout(() => setMessageSent(false), 3000);
+    toast.success('Message sent successfully!');
+  } catch (err) {
+    toast.error(err.message || 'Failed to send message');
+  } finally {
     setContactSending(false);
-    alert('Message sent!');
-  };
+  }
+};
 
   const handleAddReview = async (e) => {
     e.preventDefault();
@@ -256,7 +285,15 @@ export default function ProviderDetails() {
               </div>
 
               <div className="p-6 border-t border-slate-800">
-                <h3 className="font-medium text-slate-300 mb-3">Contact Directly</h3>
+                <h3 className="font-medium text-slate-300 mb-3 flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5" />
+                  Send Message
+                </h3>
+                {messageSent && (
+                  <div className="mb-4 p-3 bg-green-500/10 text-green-400 rounded-lg border border-green-400/20 text-sm">
+                    Message sent successfully!
+                  </div>
+                )}
                 <form onSubmit={handleSendMessage} className="space-y-3">
                   <Input
                     placeholder="Your name"
@@ -271,13 +308,21 @@ export default function ProviderDetails() {
                     onChange={(e) => setContactMsg(e.target.value)}
                     required
                     className="bg-slate-800/50 border-slate-700 focus:border-cyan-400"
+                    rows={4}
                   />
                   <Button
                     type="submit"
                     disabled={contactSending}
                     className="w-full bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600"
                   >
-                    {contactSending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Send Message'}
+                    {contactSending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        Send Message
+                      </>
+                    )}
                   </Button>
                 </form>
               </div>
