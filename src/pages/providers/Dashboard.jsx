@@ -280,7 +280,7 @@ const Dashboard = () => {
                 </div>
 
                 <Link
-                  to="/profile/edit"
+                  to={`/profile/complete/${userData.id}`}
                   className="mt-6 w-full py-2 bg-yellow-400 text-black font-semibold rounded-xl hover:bg-yellow-500 transition block"
                 >
                   Edit Profile

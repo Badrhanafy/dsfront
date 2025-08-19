@@ -63,11 +63,18 @@ export default function ProvidersPage() {
           location: p.location || 'Unknown location',
           years_of_experience: p.years_of_experience || 0,
           is_approved: p.is_approved || false,
-          services: p.services || []
+          services: p.services || [],
+          // Extract service categories for filtering
+          serviceCategories: p.services ? p.services.map(s => s.category || s.title) : []
         }));
         
         setProviders(processed);
-        setServices([...new Set((servicesRes.data.data?.data || servicesRes.data.data || []).map(s => s.category))]);
+        
+        // Extract all unique categories from services
+        const allCategories = processed.flatMap(p => 
+          p.services ? p.services.map(s => s.category || s.title) : []
+        );
+        setServices([...new Set(allCategories)]);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -100,7 +107,7 @@ export default function ProvidersPage() {
     const matchSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                        p.profession.toLowerCase().includes(searchTerm.toLowerCase());
     const matchCat = selectedCategories.length === 0 || 
-                    selectedCategories.some(c => p.services?.includes(c));
+                    selectedCategories.some(c => p.serviceCategories?.includes(c));
     const matchRating = !selectedRating || (p.rating || 0) >= selectedRating;
     return matchSearch && matchCat && matchRating;
   });
@@ -156,7 +163,7 @@ export default function ProvidersPage() {
                 <Button
                   variant="outline"
                   onClick={() => setShowFilters(!showFilters)}
-                  className="flex items-center gap-2 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-cyan-400"
+                  className="flex items-center gap-2 border-slate-600 bg-indigo-500 text-slate-300 hover:bg-slate-700 hover:text-cyan-400"
                 >
                   <Filter className="w-4 h-4" /> 
                   {showFilters ? 'Hide' : 'Show'} Filters
@@ -307,20 +314,20 @@ export default function ProvidersPage() {
                           </span>
                         </div>
 
-                        {/* Service tags */}
+                        {/* Service tags - FIXED: Extract service titles/categories */}
                         <div className="mt-2 flex flex-wrap gap-1 justify-center md:justify-start">
-                          {p.services?.slice(0, 4).map((s, idx) => (
+                          {p.serviceCategories?.slice(0, 4).map((service, idx) => (
                             <Badge 
                               key={idx} 
                               variant="outline" 
                               className="text-[10px] md:text-xs border-cyan-400/50 text-cyan-300 hover:bg-cyan-400/10"
                             >
-                              {s}
+                              {service}
                             </Badge>
                           ))}
-                          {p.services?.length > 4 && (
+                          {p.serviceCategories?.length > 4 && (
                             <Badge variant="outline" className="text-[10px] md:text-xs border-slate-600 text-slate-400">
-                              +{p.services.length - 4}
+                              +{p.serviceCategories.length - 4}
                             </Badge>
                           )}
                         </div>

@@ -1,4 +1,4 @@
-/*  Home.jsx  –  Luxe Edition (Enhanced with 3D button effects) */
+/*  Home.jsx  –  Luxe Edition (Enhanced with Avatar Handling and Service Display) */
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
@@ -7,6 +7,7 @@ import axios from 'axios';
 import VanillaTilt from 'vanilla-tilt';
 import AOS from 'aos';
 import 'aos/dist/aos.css';
+import { data } from 'autoprefixer';
 
 /* ------------- HELPERS ------------- */
 const useMouseParallax = (ref, strength = 20) => {
@@ -25,6 +26,24 @@ const useMouseParallax = (ref, strength = 20) => {
   }, [ref, strength]);
 };
 
+/* ------------- AVATAR HELPER FUNCTION ------------- */
+const getAvatarUrl = (avatar) => {
+  if (!avatar) return null;
+
+  // ila kayn http wa7ed f lmiddle n9t3o
+  const cleaned = avatar.replace('http://localhost:8000/storage/', '');
+
+  // daba ncheck
+  if (cleaned.startsWith('http')) {
+    return cleaned;
+  }
+
+  return `http://localhost:8000/storage/${cleaned}`;
+};
+
+
+
+
 /* ------------- SKELETONS ------------- */
 const ServiceSkeleton = () => (
   <div className="bg-slate-800/40 backdrop-blur-xl rounded-2xl h-72 animate-pulse" />
@@ -41,7 +60,9 @@ const Home = ({ isAuthenticated, user, onLogout }) => {
 
   const heroRef = useRef(null);
   useMouseParallax(heroRef);
-
+if (data.providers && data.providers.length > 0) {
+  console.log(getAvatarUrl(data.providers[0].avatar));
+}
   /* ---------- DATA ---------- */
   const token = localStorage.getItem('access_token');
   const fetchServices = () =>
@@ -57,12 +78,14 @@ const Home = ({ isAuthenticated, user, onLogout }) => {
       .then((r) => setData((p) => ({ ...p, providers: r.data.data?.data || r.data.data || [] })))
       .catch((e) => setError((p) => ({ ...p, providers: e.message })))
       .finally(() => setLoading((p) => ({ ...p, providers: false, all: !p.services })));
+console.log(data.providers);
 
   useEffect(() => {
     Promise.all([fetchServices(), fetchProviders()]);
     AOS.init({ duration: 800, once: true });
     return () => {};
   }, []);
+
 
   /* ---------- EFFECTS ---------- */
   const cardRefs = useRef([]);
@@ -164,19 +187,32 @@ const Home = ({ isAuthenticated, user, onLogout }) => {
                 : data.services.slice(0, 4).map((s, i) => (
                     <div
                       key={s.id}
-                      ref={(el) => (cardRefs.current[i] = el)}
-                      className="glass-card p-6 rounded-2xl flex flex-col h-full"
+                      className="service-card h-72 rounded-2xl overflow-hidden relative group"
                       data-aos="zoom-in"
                       data-aos-delay={i * 100}
+                      style={{
+                        backgroundImage: `url('http://localhost:8000/storage/${s.image}')`,
+                        backgroundSize: 'cover',
+                        border:'1px solid yellow',
+                        backgroundPosition: 'center'
+                      }}
                     >
-                      <div className="text-4xl mb-4">{s.icon || '🛠️'}</div>
-                      <h3 className="font-bold text-xl mb-2">{s.title}</h3>
-                      <p className="text-slate-400 text-sm mb-auto">{s.description}</p>
-                      <div className="mt-6 flex justify-between items-center">
-                        <span className="text-sm bg-cyan-400/20 text-cyan-300 px-3 py-1 rounded-full">{s.category}</span>
-                        <span className="font-bold text-lg">
-                          {s.rate_type === 'hourly' ? `$${s.hourly_rate}/hr` : `$${s.fixed_rate}`}
-                        </span>
+                      {/* Overlay on hover */}
+                      <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-6">
+                        <h3 className="font-bold text-xl mb-2 text-white">{s.title}</h3>
+                        <p className="text-slate-200 text-sm mb-4 line-clamp-2">{s.description}</p>
+                        <div className="flex justify-between items-center mb-4">
+                          <span className="text-sm bg-cyan-400/20 text-cyan-300 px-3 py-1 rounded-full">{s.category}</span>
+                          <span className="font-bold text-lg text-white">
+                            {s.rate_type === 'hourly' ? `$${s.hourly_rate}/hr` : `$${s.fixed_rate}`}
+                          </span>
+                        </div>
+                        <Link 
+                          to={`/services/${s.id}`} 
+                          className="btn-3d w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-600 font-bold text-center transition"
+                        >
+                          View Details
+                        </Link>
                       </div>
                     </div>
                   ))}
@@ -204,7 +240,9 @@ const Home = ({ isAuthenticated, user, onLogout }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {loading.providers
                 ? Array(3).fill(0).map((_, i) => <ProviderSkeleton key={i} />)
-                : data.providers.slice(0, 3).map((p, i) => (
+                : data.providers.slice(0, 3).map((p, i) => {
+                    const avatarUrl = getAvatarUrl(p.avatar);
+                    return (
                     <div
                       key={p.id}
                       ref={(el) => (cardRefs.current[i + 10] = el)}
@@ -213,8 +251,12 @@ const Home = ({ isAuthenticated, user, onLogout }) => {
                       data-aos-delay={i * 100}
                     >
                       <div className="flex items-center mb-4">
-                        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-cyan-400 flex items-center justify-center font-bold text-3xl text-white">
-                          {p.name?.charAt(0)}
+                        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-cyan-400 flex items-center justify-center font-bold text-3xl text-white overflow-hidden">
+                          {avatarUrl ? (
+                            <img src={avatarUrl} alt={p.name} className="w-full h-full object-cover" />
+                          ) : (
+                            p.name?.charAt(0)
+                          )}
                         </div>
                         <div className="ml-4">
                           <h4 className="font-bold text-xl">{p.name}</h4>
@@ -241,7 +283,7 @@ const Home = ({ isAuthenticated, user, onLogout }) => {
                         View Profile
                       </Link>
                     </div>
-                  ))}
+                  )})}
             </div>
           </div>
         </section>
@@ -403,6 +445,23 @@ const Home = ({ isAuthenticated, user, onLogout }) => {
         
         .btn-3d.border-white\\/30::after {
           box-shadow: 0 0 20px 5px rgba(192, 132, 252, 0.5);
+        }
+        
+        /* Service card styles */
+        .service-card {
+          transition: all 0.3s ease;
+        }
+        
+        .service-card:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.3);
+        }
+        
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
       `}</style>
     </>
