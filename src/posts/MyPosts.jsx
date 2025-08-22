@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, MessageCircle, Send, Share2, Edit, Trash2, X, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Edit, Trash2, Clock, AlertCircle, RefreshCw, ImageIcon, X } from 'lucide-react';
 
 const MyPosts = ({ showAlert }) => {
   const [myPosts, setMyPosts] = useState([]);
@@ -10,6 +10,8 @@ const MyPosts = ({ showAlert }) => {
   const [editingPost, setEditingPost] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
+  const [editImage, setEditImage] = useState(null);
+  const [removeImage, setRemoveImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -28,27 +30,23 @@ const MyPosts = ({ showAlert }) => {
         return;
       }
 
-      // Use the clean endpoint without query parameters
       const { data } = await axios.get(`http://localhost:8000/api/users/${userData.id}/posts`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       
-      // Handle different API response structures
-      const posts = data.data || data || [];
-      setMyPosts(Array.isArray(posts) ? posts : []);
+      if (data.success) {
+        const postsWithImageUrls = data.data.map(post => ({
+          ...post,
+          imageUrl: post.image ? `http://localhost:8000/storage/${post.image}` : null
+        }));
+        setMyPosts(postsWithImageUrls);
+      } else {
+        setError(data.message || 'Failed to load posts');
+      }
       
     } catch (err) {
       console.error('Error fetching user posts:', err);
-      
-      if (err.response?.status === 404) {
-        setError('The user posts endpoint was not found. Please contact support.');
-      } else if (err.response?.status === 403) {
-        setError('You are not authorized to view these posts.');
-      } else if (err.response?.status === 401) {
-        setError('Your session has expired. Please log in again.');
-      } else {
-        setError('Could not load your posts. Please try again later.');
-      }
+      setError('Could not load your posts. Please try again later.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -65,12 +63,16 @@ const MyPosts = ({ showAlert }) => {
     setEditingPost(post.id);
     setEditTitle(post.title);
     setEditContent(post.content);
+    setEditImage(null);
+    setRemoveImage(false);
   };
 
   const handleCancelEdit = () => {
     setEditingPost(null);
     setEditTitle('');
     setEditContent('');
+    setEditImage(null);
+    setRemoveImage(false);
   };
 
   const handleUpdatePost = async (postId) => {
@@ -82,23 +84,41 @@ const MyPosts = ({ showAlert }) => {
     setIsSubmitting(true);
     try {
       const token = localStorage.getItem('access_token');
+      const formData = new FormData();
       
-      await axios.put(`http://localhost:8000/api/posts/${postId}`, {
-        title: editTitle,
-        content: editContent
-      }, {
-        headers: { Authorization: `Bearer ${token}` },
+      formData.append('title', editTitle);
+      formData.append('content', editContent);
+      
+      if (editImage) {
+        formData.append('image', editImage);
+      }
+      
+      if (removeImage) {
+        formData.append('remove_image', 'true');
+      }
+
+      const { data } = await axios.put(`http://localhost:8000/api/posts/${postId}`, formData, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        },
       });
-      
-      // Update local state
-      setMyPosts(posts => posts.map(post => 
-        post.id === postId 
-          ? { ...post, title: editTitle, content: editContent, updated_at: new Date().toISOString() }
-          : post
-      ));
-      
-      showAlert('Post updated successfully!');
-      handleCancelEdit();
+
+      if (data.success) {
+        setMyPosts(posts => posts.map(post => 
+          post.id === postId 
+            ? { 
+                ...data.data, 
+                imageUrl: data.data.image ? `http://localhost:8000/storage/${data.data.image}` : null 
+              }
+            : post
+        ));
+        
+        showAlert('Post updated successfully!');
+        handleCancelEdit();
+      } else {
+        showAlert(data.message || 'Failed to update post');
+      }
     } catch (err) {
       console.error('Error updating post:', err);
       showAlert('Failed to update post. Please try again.');
@@ -113,35 +133,32 @@ const MyPosts = ({ showAlert }) => {
     try {
       const token = localStorage.getItem('access_token');
       
-      await axios.delete(`http://localhost:8000/api/posts/${postId}`, {
+      const { data } = await axios.delete(`http://localhost:8000/api/posts/${postId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      
-      // Remove from local state
-      setMyPosts(posts => posts.filter(post => post.id !== postId));
-      showAlert('Post deleted successfully!');
+
+      if (data.success) {
+        setMyPosts(posts => posts.filter(post => post.id !== postId));
+        showAlert('Post deleted successfully!');
+      } else {
+        showAlert(data.message || 'Failed to delete post');
+      }
     } catch (err) {
       console.error('Error deleting post:', err);
       showAlert('Failed to delete post. Please try again.');
     }
   };
 
-  const likePost = async (postId) => {
-    try {
-      const token = localStorage.getItem('access_token');
-      
-      await axios.post(
-        `http://localhost:8000/api/posts/${postId}/react`,
-        { type: 'like' },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      // Refresh posts to get updated like count
-      fetchMyPosts();
-    } catch (error) {
-      console.error('Error liking post:', error);
-      showAlert('Failed to like post. Please try again.');
+  const handleImageChange = (e) => {
+    if (e.target.files[0]) {
+      setEditImage(e.target.files[0]);
+      setRemoveImage(false);
     }
+  };
+
+  const handleRemoveImage = () => {
+    setEditImage(null);
+    setRemoveImage(true);
   };
 
   const formatTime = (timestamp) => {
@@ -175,38 +192,42 @@ const MyPosts = ({ showAlert }) => {
     return formatTime(timestamp);
   };
 
-  if (loading) return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-      <div className="text-center">
-        <div className="w-16 h-16 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p className="text-slate-300 text-lg font-light">Loading your posts...</p>
-      </div>
-    </div>
-  );
-
-  if (error) return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center px-4">
-      <div className="glass-card p-8 rounded-2xl text-center max-w-md">
-        <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-        <h3 className="text-xl font-semibold text-white mb-2">Unable to load posts</h3>
-        <p className="text-slate-300 mb-6">{error}</p>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <button
-            onClick={handleRefresh}
-            className="bg-gradient-to-r from-cyan-500 to-purple-500 text-white px-6 py-2 rounded-full hover:from-cyan-600 hover:to-purple-600 transition-all"
-          >
-            Try Again
-          </button>
-          <button
-            onClick={() => window.location.reload()}
-            className="bg-slate-700 text-slate-300 px-6 py-2 rounded-full hover:bg-slate-600 transition-all"
-          >
-            Reload Page
-          </button>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-300 text-lg font-light">Loading your posts...</p>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center px-4">
+        <div className="glass-card p-8 rounded-2xl text-center max-w-md">
+          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-white mb-2">Unable to load posts</h3>
+          <p className="text-slate-300 mb-6">{error}</p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-purple-500 text-white px-6 py-2 rounded-full hover:from-cyan-600 hover:to-purple-600 transition-all disabled:opacity-50"
+            >
+              {refreshing ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 py-8">
@@ -226,9 +247,9 @@ const MyPosts = ({ showAlert }) => {
               title="Refresh posts"
             >
               {refreshing ? (
-                <Clock className="w-4 h-4 animate-spin" />
+                <RefreshCw className="w-4 h-4 animate-spin" />
               ) : (
-                <Clock className="w-4 h-4" />
+                <RefreshCw className="w-4 h-4" />
               )}
               <span className="text-sm">Refresh</span>
             </button>
@@ -261,7 +282,6 @@ const MyPosts = ({ showAlert }) => {
                   exit={{ opacity: 0, y: -30 }}
                   className="glass-card border border-slate-700 rounded-2xl overflow-hidden shadow-lg shadow-cyan-500/10 hover:shadow-cyan-500/20 transition-all duration-500"
                 >
-                  {/* Post Header with Actions */}
                   <div className="p-6 pb-4 border-b border-slate-700">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
@@ -274,10 +294,10 @@ const MyPosts = ({ showAlert }) => {
                           <h4 className="text-lg font-semibold text-white">
                             {post.user?.name || 'You'}
                           </h4>
-                          <p className="text-slate-400 text-sm flex items-center gap-2">
-                            <span>{formatTime(post.created_at)}</span>
-                            {post.updated_at && post.updated_at !== post.created_at && (
-                              <span className="text-xs text-slate-500">(edited)</span>
+                          <p className="text-slate-400 text-sm">
+                            {formatTime(post.created_at)}
+                            {post.updated_at !== post.created_at && (
+                              <span className="text-xs text-slate-500 ml-2">(edited)</span>
                             )}
                           </p>
                         </div>
@@ -302,7 +322,6 @@ const MyPosts = ({ showAlert }) => {
                     </div>
                   </div>
 
-                  {/* Post Content */}
                   <div className="p-6">
                     {editingPost === post.id ? (
                       <div className="space-y-4">
@@ -313,6 +332,7 @@ const MyPosts = ({ showAlert }) => {
                           className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 transition-all duration-300"
                           placeholder="Post title"
                         />
+                        
                         <textarea
                           value={editContent}
                           onChange={(e) => setEditContent(e.target.value)}
@@ -320,6 +340,37 @@ const MyPosts = ({ showAlert }) => {
                           className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 transition-all duration-300 resize-none"
                           placeholder="Post content"
                         />
+
+                        <div className="space-y-3">
+                          {(post.imageUrl || editImage) && !removeImage && (
+                            <div className="relative">
+                              <img
+                                src={editImage ? URL.createObjectURL(editImage) : post.imageUrl}
+                                alt="Post preview"
+                                className="w-full h-48 object-cover rounded-xl"
+                              />
+                              <button
+                                onClick={handleRemoveImage}
+                                className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"
+                                title="Remove image"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          )}
+                          
+                          <label className="flex items-center space-x-2 px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:bg-slate-700/50 transition-all duration-300 text-slate-400 hover:text-white text-sm">
+                            <ImageIcon className="w-4 h-4" />
+                            <span>{editImage ? editImage.name : 'Change Image'}</span>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              onChange={handleImageChange}
+                              className="sr-only" 
+                            />
+                          </label>
+                        </div>
+
                         <div className="flex items-center space-x-3">
                           <button
                             onClick={() => handleUpdatePost(post.id)}
@@ -344,11 +395,11 @@ const MyPosts = ({ showAlert }) => {
                         <p className="text-slate-300 leading-relaxed mb-4 whitespace-pre-line">
                           {post.content}
                         </p>
-                        {post.image && (
+                        {post.imageUrl && (
                           <div className="rounded-2xl overflow-hidden bg-slate-800/50">
                             <img
-                              src={`http://localhost:8000/storage/${post.image}`}
-                              alt="post"
+                              src={post.imageUrl}
+                              alt="Post content"
                               className="w-full h-64 object-cover"
                             />
                           </div>
@@ -357,7 +408,6 @@ const MyPosts = ({ showAlert }) => {
                     )}
                   </div>
 
-                  {/* Post Stats and Actions */}
                   {editingPost !== post.id && (
                     <>
                       <div className="px-6 py-3 border-t border-slate-700">
@@ -378,7 +428,7 @@ const MyPosts = ({ showAlert }) => {
                               </div>
                             )}
                           </div>
-                          {post.updated_at && post.updated_at !== post.created_at && (
+                          {post.updated_at !== post.created_at && (
                             <span className="text-xs text-slate-500">
                               Edited {formatRelativeTime(post.updated_at)}
                             </span>
@@ -388,10 +438,7 @@ const MyPosts = ({ showAlert }) => {
 
                       <div className="px-6 py-4 border-t border-slate-700">
                         <div className="flex items-center space-x-1">
-                          <button 
-                            onClick={() => likePost(post.id)}
-                            className="flex items-center space-x-2 px-4 py-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-700/30 transition-all duration-300"
-                          >
+                          <button className="flex items-center space-x-2 px-4 py-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-700/30 transition-all duration-300">
                             <Heart className="w-4 h-4" />
                             <span className="text-sm font-medium">Like</span>
                           </button>
