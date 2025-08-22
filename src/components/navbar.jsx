@@ -80,7 +80,7 @@ const Navbar = () => {
   // Provider-specific links
   const providerNavLinks = [
     { name: 'Messages', path: '/Provider/messages' },
-    { name: 'Posts', path: '/posts' },
+    { name: 'Posts', path: '/social' },
     ...baseNavLinks
   ];
 
@@ -90,11 +90,23 @@ const Navbar = () => {
     return user.role === 'provider' ? providerNavLinks : clientNavLinks;
   };
 
-  const userMenuItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
-    { name: 'Profile', path: `/profile/complete/${user?.id || ''}`, icon: 'M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z' },
-    { name: 'Settings', path: '/settings', icon: 'M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z' },
-  ];
+  // User menu items - conditionally show based on role
+  const getUserMenuItems = () => {
+    const baseItems = [
+      { name: 'Settings', path: '/settings', icon: 'M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z' },
+    ];
+    
+    // Only show dashboard and profile for providers
+    if (user?.role === 'provider') {
+      return [
+        { name: 'Dashboard', path: '/dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
+        { name: 'Profile', path: `/profile/complete/${user?.id || ''}`, icon: 'M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z' },
+        ...baseItems
+      ];
+    }
+    
+    return baseItems;
+  };
 
   /* ---------- Effects ---------- */
   useEffect(() => {
@@ -164,6 +176,20 @@ const Navbar = () => {
     setShowTooltip(false);
   };
 
+  // Render user avatar or initial
+  const renderUserAvatar = () => {
+    if (user?.avatar) {
+      return (
+        <img 
+          src={`http://localhost:8000/storage/${user.avatar}`} 
+          alt={user.name}
+          className="w-full h-full rounded-full object-cover"
+        />
+      );
+    }
+    return user?.name?.charAt(0).toUpperCase();
+  };
+
   /* ---------- Render ---------- */
   return (
     <>
@@ -219,10 +245,10 @@ const Navbar = () => {
               <motion.button
                 ref={avatarRef}
                 onClick={() => setUserMenuOpen(true)}
-                className="ml-6 w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg hover:shadow-cyan-500/30 transition"
+                className="ml-6 w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg hover:shadow-cyan-500/30 transition overflow-hidden"
                 whileHover={{ scale: 1.1 }}
               >
-                {user?.name?.charAt(0).toUpperCase()}
+                {renderUserAvatar()}
               </motion.button>
             ) : (
               <div className="relative ml-6">
@@ -312,15 +338,15 @@ const Navbar = () => {
                   <>
                     <div className="border-t border-slate-700/50 pt-4 mt-4">
                       <div className="flex items-center px-4 py-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-purple-600 flex items-center justify-center text-white font-bold mr-3">
-                          {user?.name?.charAt(0).toUpperCase()}
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-purple-600 flex items-center justify-center text-white font-bold mr-3 overflow-hidden">
+                          {renderUserAvatar()}
                         </div>
                         <div>
                           <p className="font-semibold text-white">{user.name}</p>
                           <p className="text-sm text-slate-400">{user.email}</p>
                         </div>
                       </div>
-                      {userMenuItems.map((item) => (
+                      {getUserMenuItems().map((item) => (
                         <Link
                           key={item.name}
                           to={item.path}
@@ -391,8 +417,8 @@ const Navbar = () => {
             >
               <div className="flex justify-between items-center mb-8">
                 <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-400 to-purple-600 flex items-center justify-center text-white font-bold text-xl">
-                    {user?.name?.charAt(0).toUpperCase()}
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-400 to-purple-600 flex items-center justify-center text-white font-bold text-xl overflow-hidden">
+                    {renderUserAvatar()}
                   </div>
                   <div>
                     <p className="font-bold text-white">{user?.name}</p>
@@ -407,7 +433,7 @@ const Navbar = () => {
               </div>
 
               <nav className="space-y-2 flex-1">
-                {userMenuItems.map((item) => (
+                {getUserMenuItems().map((item) => (
                   <Link
                     key={item.name}
                     to={item.path}
