@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, MessageCircle, Send, Image as ImageIcon, Users, Sparkles, Camera, Share2, X, CheckCircle2 } from 'lucide-react';
+import MyPosts from './MyPosts'; // Import the MyPosts component
 
 const Social = () => {
   const [posts, setPosts] = useState([]);
@@ -11,7 +12,7 @@ const Social = () => {
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
   const alertTimerRef = React.useRef(null);
-
+ 
   useEffect(() => {
     fetchPosts();
   }, []);
@@ -93,7 +94,7 @@ const Social = () => {
             </div>
             <div className="flex items-center space-x-2 text-slate-400">
               <Users className="w-4 h-4" />
-              <span className="text-sm font-medium">2.4k members</span>
+              <span className="text-sm font-medium">more than {posts.length} posts</span>
             </div>
           </div>
           
@@ -133,15 +134,19 @@ const Social = () => {
             </div>
           </div>
           
-          {/* Scrollable Posts Section with Hidden Scrollbar */}
+          {/* Scrollable Posts Section with Hidden Scrollbar - UPDATED WITH CONDITIONAL RENDERING */}
           <div className="lg:col-span-2">
-            <div className="space-y-6 max-h-screen overflow-y-auto pr-2 scrollbar-hide">
-              <AnimatePresence>
-                {posts.map((post) => (
-                  <PostCard key={post.id} post={post} onUpdate={fetchPosts} showAlert={showAlert} />
-                ))}
-              </AnimatePresence>
-            </div>
+            {activeTab === 'feed' ? (
+              <div className="space-y-6 max-h-screen overflow-y-auto pr-2 scrollbar-hide">
+                <AnimatePresence>
+                  {posts.map((post) => (
+                    <PostCard key={post.id} post={post} onUpdate={fetchPosts} showAlert={showAlert} />
+                  ))}
+                </AnimatePresence>
+              </div>
+            ) : (
+              <MyPosts showAlert={showAlert} />
+            )}
           </div>
         </div>
       </div>
@@ -191,6 +196,8 @@ const Social = () => {
     </div>
   );
 };
+
+// ... rest of your component (PublishPost, PostCard, etc.) remains the same ...
 
 /* ---------- Publish Post ---------- */
 const PublishPost = ({ onSuccess, showAlert }) => {
